@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="AKDataEditor/AKDataEditor.vcxproj" Id="f163b0b8-7cf7-4dad-93b8-b218a652ea05" />
+</Solution>

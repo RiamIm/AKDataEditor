@@ -140,6 +140,7 @@
     <ClCompile Include="..\ThirdParty\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\imgui_widgets.cpp" />
     <ClCompile Include="EnemyEditor.cpp" />
+    <ClCompile Include="LevelEditor.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OperatorEditor.cpp" />
   </ItemGroup>
@@ -155,6 +156,7 @@
     <ClInclude Include="..\ThirdParty\imgui\imstb_truetype.h" />
     <ClInclude Include="..\ThirdParty\nlohmann\json.hpp" />
     <ClInclude Include="EnemyEditor.h" />
+    <ClInclude Include="LevelEditor.h" />
     <ClInclude Include="OperatorEditor.h" />
     <ClInclude Include="Utility.h" />
   </ItemGroup>

@@ -17,6 +17,7 @@
 
 #include "EnemyEditor.h"
 #include "OperatorEditor.h"
+#include "LevelEditor.h"
 #include "Utility.h"
 
 static char solutionPath[512] = "";
@@ -53,25 +54,28 @@ std::string BrowseForFolder()
 }
 
 // 경로 변경 함수
-void ChangeSolutionPath(const std::string& newPath, EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor)
+void ChangeSolutionPath(const std::string& newPath, EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor, LevelEditor*& levelEditor)
 {
     strcpy_s(solutionPath, newPath.c_str());
     pathInitialized = true;
 
     std::string enemyPath = std::string(solutionPath) + "/gamedata/tables/enemies_table.json";
     std::string operatorPath = std::string(solutionPath) + "/gamedata/tables/operators_table.json";
+    std::string levelPath = std::string(solutionPath) + "/gamedata/levels/";
 
     delete enemyEditor;
     delete operatorEditor;
+    delete levelEditor;
 
     enemyEditor = new EnemyEditor(enemyPath);
     operatorEditor = new OperatorEditor(operatorPath);
+    levelEditor = new LevelEditor(levelPath);
 
     std::cout << "Path set to: " << solutionPath << "\n";
 }
 
 // Ctrl+S 단축키 처리 함수
-void HandleCtrlS(EnemyEditor* enemyEditor, OperatorEditor* operatorEditor)
+void HandleCtrlS(EnemyEditor* enemyEditor, OperatorEditor* operatorEditor, LevelEditor* levelEditor)
 {
     ImGuiIO& io = ImGui::GetIO();
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S))
@@ -92,13 +96,20 @@ void HandleCtrlS(EnemyEditor* enemyEditor, OperatorEditor* operatorEditor)
             saved = true;
         }
 
+        if (levelEditor->HasUnsavedChanges())
+        {
+            levelEditor->SaveAllLevels();
+            levelEditor->ClearUnsavedFlag();
+            saved = true;
+        }
+
         if (saved)
             std::cout << "[Shortcut] Saved with Ctrl+S!\n";
     }
 }
 
 // 메인 UI 렌더링 함수
-void RenderMainUI(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor,
+void RenderMainUI(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor, LevelEditor*& levelEditor,
     bool& showEnemyEditor, bool& showOperatorEditor, bool& showLevelEditor)
 {
     ImGui::Begin("Data Editor");
@@ -111,7 +122,7 @@ void RenderMainUI(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor,
 
     if (ImGui::Button("찾아보기..."))
     {
-        bool hasUnsaved = enemyEditor->HasUnsavedChanges() || operatorEditor->HasUnsavedChanges();
+        bool hasUnsaved = enemyEditor->HasUnsavedChanges() || operatorEditor->HasUnsavedChanges() || levelEditor->HasUnsavedChanges();
 
         if (hasUnsaved)
         {
@@ -122,7 +133,7 @@ void RenderMainUI(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor,
             std::string selected = BrowseForFolder();
             if (!selected.empty())
             {
-                ChangeSolutionPath(selected, enemyEditor, operatorEditor);
+                ChangeSolutionPath(selected, enemyEditor, operatorEditor, levelEditor);
             }
         }
     }
@@ -174,7 +185,7 @@ void RenderMainUI(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor,
 }
 
 // Unsaved 경고 팝업 렌더링 함수
-void RenderUnsavedWarningPopup(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor)
+void RenderUnsavedWarningPopup(EnemyEditor*& enemyEditor, OperatorEditor*& operatorEditor, LevelEditor*& levelEditor)
 {
     if (showUnsavedWarning)
     {
@@ -193,7 +204,7 @@ void RenderUnsavedWarningPopup(EnemyEditor*& enemyEditor, OperatorEditor*& opera
             std::string selected = BrowseForFolder();
             if (!selected.empty())
             {
-                ChangeSolutionPath(selected, enemyEditor, operatorEditor);
+                ChangeSolutionPath(selected, enemyEditor, operatorEditor, levelEditor);
             }
             ImGui::CloseCurrentPopup();
         }
@@ -270,9 +281,11 @@ int main(int, char**)
     // 에디터 초기화
     std::string enemyPath = std::string(solutionPath) + "/gamedata/tables/enemies_table.json";
     std::string operatorPath = std::string(solutionPath) + "/gamedata/tables/operators_table.json";
+    std::string levelPath = std::string(solutionPath) + "/gamedata/levels/";
 
     EnemyEditor* enemyEditor = new EnemyEditor(enemyPath);
     OperatorEditor* operatorEditor = new OperatorEditor(operatorPath);
+    LevelEditor* levelEditor = new LevelEditor(levelPath);
 
     bool showEnemyEditor = false;
     bool showOperatorEditor = false;
@@ -296,13 +309,13 @@ int main(int, char**)
         ImGui::NewFrame();
 
         // Ctrl+S 처리
-        HandleCtrlS(enemyEditor, operatorEditor);
+        HandleCtrlS(enemyEditor, operatorEditor, levelEditor);
 
         // 메인 UI
-        RenderMainUI(enemyEditor, operatorEditor, showEnemyEditor, showOperatorEditor, showLevelEditor);
+        RenderMainUI(enemyEditor, operatorEditor, levelEditor, showEnemyEditor, showOperatorEditor, showLevelEditor);
 
         // 경고 팝업
-        RenderUnsavedWarningPopup(enemyEditor, operatorEditor);
+        RenderUnsavedWarningPopup(enemyEditor, operatorEditor, levelEditor);
 
         // 에디터 윈도우들
         if (showEnemyEditor)
@@ -312,11 +325,7 @@ int main(int, char**)
             operatorEditor->RenderGUI(&showOperatorEditor);
 
         if (showLevelEditor)
-        {
-            ImGui::Begin("레벨 편집기", &showLevelEditor);
-            ImGui::Text("개발 중입니다.");
-            ImGui::End();
-        }
+            levelEditor->RenderGUI(&showLevelEditor);
 
         // Rendering
         ImGui::Render();

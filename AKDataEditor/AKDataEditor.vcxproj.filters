@@ -16,6 +16,12 @@
     <Filter Include="Imgui">
       <UniqueIdentifier>{441aaa5d-6c17-4607-a1a6-5222260155c8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Editor">
+      <UniqueIdentifier>{c0a2d5da-554e-4889-8aab-da501dc4ec6a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="json">
+      <UniqueIdentifier>{a5fd043d-439b-4025-ba49-f01f4c74261f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -45,11 +51,11 @@
     <ClCompile Include="..\ThirdParty\imgui\imgui_widgets.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
-    <ClCompile Include="EnemyEditor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="OperatorEditor.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EnemyEditor.cpp">
+      <Filter>Editor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -80,17 +86,17 @@
     <ClInclude Include="..\ThirdParty\imgui\imstb_truetype.h">
       <Filter>Imgui</Filter>
     </ClInclude>
-    <ClInclude Include="EnemyEditor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="OperatorEditor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ThirdParty\nlohmann\json.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Utility.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EnemyEditor.h">
+      <Filter>Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="OperatorEditor.h">
+      <Filter>Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ThirdParty\nlohmann\json.hpp">
+      <Filter>json</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -181,9 +181,11 @@ void LevelEditor::RenderLevelsList()
 			ImGui::TableNextColumn();
 
 			ImGui::PushID(index);
-			if (ImGui::SmallButton("펀집"))
+			if (ImGui::SmallButton("편집"))
 			{
 				_selectedLevelIndex = index;
+				_editMode = EditMode::Grid;  // 항상 그리드부터 시작
+				_editModeChanged = true;
 				_showEditWindow = true;
 
 				// 편집 상태 초기화
@@ -193,6 +195,7 @@ void LevelEditor::RenderLevelsList()
 			}
 
 			ImGui::SameLine();
+
 			if (ImGui::SmallButton("삭제"))
 			{
 				_deleteTargetIndex = index;
@@ -320,27 +323,143 @@ void LevelEditor::RenderEditWindow()
 	if (ImGui::BeginMenuBar())
 	{
 		ImGui::Text("레벨: %s", level.levelId.c_str());
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// 진행상태 표시
+		if (level.gridCompleted)
+		{
+			ImGui::TextColored(COLOR_GREEN, "그리드 완료");
+		}
+		else
+		{
+			ImGui::TextColored(COLOR_GRAY, "그리드 미완료");
+		}
+
+		ImGui::SameLine();
+		ImGui::Text("|");
+		ImGui::SameLine();
+
+		if (level.routeCompleted)
+		{
+			ImGui::TextColored(COLOR_GREEN, "경로 완료");
+		}
+		else
+		{
+			ImGui::TextColored(COLOR_GRAY, "경로 미완료");
+		}
+
+		ImGui::SameLine();
+		ImGui::Text("|");
+		ImGui::SameLine();
+
+		if (level.gridCompleted)
+		{
+			ImGui::TextColored(COLOR_GREEN, "웨이브 완료");
+		}
+		else
+		{
+			ImGui::TextColored(COLOR_GRAY, "웨이브 미완료");
+		}
+
 		ImGui::EndMenuBar();
 	}
 
 	// 사용 가능한 영역 크기 계산
 	ImVec2 availRegion = ImGui::GetContentRegionAvail();
-	float buttonHeight = 30.0f;  // 하단 버튼 높이
-	float childHeight = availRegion.y - buttonHeight - 10.0f;  // 여백 포함
+	float buttonHeight = 30.0f; 
+	float childHeight = availRegion.y - buttonHeight - 10.0f;  
 
-	// 왼쪽 70%: 타일 에디터
-	ImGui::BeginChild("GridPane", ImVec2(availRegion.x * 0.7f, childHeight), true);
-	RenderGridEditor(level);
-	ImGui::EndChild();
+	if (ImGui::BeginTabBar("LevelEditTabs"))
+	{
+		// ========== 그리드 탭 (항상 활성화) ==========
+		ImGuiTabItemFlags gridFlags = 0;
+		if (_editMode == EditMode::Grid && _editModeChanged)
+			gridFlags = ImGuiTabItemFlags_SetSelected;
 
-	ImGui::SameLine();
+		if (ImGui::BeginTabItem("그리드", nullptr, gridFlags))
+		{
+			_editMode = EditMode::Grid;
+			_editModeChanged = false;
 
-	// 오른쪽 30%: 옵션 + 타일 정보
-	ImGui::BeginChild("InfoPane", ImVec2(0, childHeight), true);
-	RenderOptionsPanel(level);
-	ImGui::Separator();
-	RenderTileInspector(level);
-	ImGui::EndChild();
+			// 기존 레이아웃
+			ImGui::BeginChild("GridPane", ImVec2(availRegion.x * 0.7f, childHeight), true);
+			RenderGridEditor(level);
+			ImGui::EndChild();
+
+			ImGui::SameLine();
+
+			ImGui::BeginChild("InfoPane", ImVec2(0, childHeight), true);
+			RenderOptionsPanel(level);
+			ImGui::Separator();
+			RenderTileInspector(level);
+			ImGui::EndChild();
+
+			ImGui::EndTabItem();
+		}
+
+		// ========== 경로 탭 (Grid 완성 후에만 활성화) ==========
+		ImGuiTabItemFlags routeFlags = 0;
+		if (_editMode == EditMode::Route && _editModeChanged)
+			routeFlags = ImGuiTabItemFlags_SetSelected;
+
+		// Grid 완성 여부에 따라 활성화/비활성화
+		if (level.gridCompleted)
+		{
+			if (ImGui::BeginTabItem("경로", nullptr, routeFlags))
+			{
+				_editMode = EditMode::Route;
+				_editModeChanged = false;
+
+				RenderRouteEditor(level);
+
+				ImGui::EndTabItem();
+			}
+		}
+		else
+		{
+			// 비활성화 상태로 표시
+			ImGui::BeginDisabled();
+			if (ImGui::BeginTabItem("경로"))
+			{
+				ImGui::EndTabItem();
+			}
+			ImGui::EndDisabled();
+		}
+
+		// ========== 웨이브 탭 (Route 완성 후에만 활성화) ==========
+		ImGuiTabItemFlags waveFlags = 0;
+		if (_editMode == EditMode::Wave && _editModeChanged)
+			waveFlags = ImGuiTabItemFlags_SetSelected;
+
+		// Route 완성 여부에 따라 활성화/비활성화
+		if (level.routeCompleted)
+		{
+			if (ImGui::BeginTabItem("웨이브", nullptr, waveFlags))
+			{
+				_editMode = EditMode::Wave;
+				_editModeChanged = false;
+
+				RenderWaveEditor(level);
+
+				ImGui::EndTabItem();
+			}
+		}
+		else
+		{
+			// 비활성화 상태로 표시
+			ImGui::BeginDisabled();
+			if (ImGui::BeginTabItem("웨이브"))
+			{
+				ImGui::EndTabItem();
+			}
+			ImGui::EndDisabled();
+		}
+
+		ImGui::EndTabBar();
+	}
 
 	ImGui::Separator();
 
@@ -406,10 +525,24 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 	const char* tileTypes[] = { "금지", "도로", "벽", "시작", "종료", "고지", "구멍" };
 	for (int i = 0; i < (int)TileType::MAX; i++)
 	{
+		ImU32 color = GetTileColor((TileType)i);
+		ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(color);
+		ImGui::PushStyleColor(ImGuiCol_Text, colorVec);
+
 		if (ImGui::RadioButton(tileTypes[i], (int)_selectedTileType == i))
+		{
 			_selectedTileType = (TileType)i;
+
+			_selectedGridRow = -2;  // -2는 "브러시 선택" 상태를 의미
+			_selectedGridCol = -2;
+		}
+
+		ImGui::PopStyleColor();
+
 		if (i < (int)TileType::MAX - 1)
+		{
 			ImGui::SameLine();
+		}
 	}
 
 	ImGui::Separator();
@@ -424,7 +557,7 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 		canvas_size.y / level.gridRows
 	) * 0.9f;
 
-	// 그리드 그리기 (중요: 좌표 변환!)
+	// 그리드 그리기 
 	for (int jsonRow = 0; jsonRow < level.gridRows; jsonRow++)
 	{
 		int gameRow = JsonIndexToGameRow(jsonRow, level.gridRows);
@@ -504,12 +637,63 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 
 	// 캔버스 영역
 	ImGui::InvisibleButton("canvas", ImVec2(level.gridCols * cellSize, level.gridRows * cellSize));
+
+	ImGui::Separator();
+	
+	if (!level.gridCompleted)
+	{
+		ImGui::TextColored(COLOR_YELLOW, "그리드 편집을 완료하면 경로 편집을 시작할 수 있습니다.");
+
+		if (ImGui::Button("그리드 편집 완료", ImVec2(120, 0)))
+		{
+			level.gridCompleted = true;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+
+			std::cout << "[Level] Grid completed for " << level.levelId << "\n";
+
+			// 자동으로 경로 탭으로 전환
+			_editMode = EditMode::Route;
+			_editModeChanged = true;
+		}
+	}
+	else
+	{
+		ImGui::TextColored(COLOR_GREEN, "그리드 편집 완료됨");
+
+		if (ImGui::Button("그리드 다시 편집", ImVec2(200, 0)))
+		{
+			level.gridCompleted = false;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+		}
+	}
 }
 
 
 void LevelEditor::RenderTileInspector(LevelData& level)
 {
 	ImGui::SeparatorText("타일 정보");
+
+	if (_selectedGridRow == -2 && _selectedGridCol == -2)
+	{
+		// 선택된 브러시 정보 표시
+		ImGui::TextColored(COLOR_YELLOW, "선택된 브러시:");
+
+		json tempTile = CreateTileData(_selectedTileType);
+		std::string tileKey = tempTile.value("tileKey", "tile_forbidden");
+		int heightType = tempTile.value("heightType", 0);
+		int buildableType = tempTile.value("buildableType", 0);
+		int passableMask = tempTile.value("passableMask", 0);
+
+		ImGui::Text("타일 종류: %s", tileKey.c_str());
+		ImGui::Text("높이: %s", heightType == 0 ? "낮음" : "높음");
+		ImGui::Text("배치 가능: %s",
+			buildableType == 0 ? "불가" :
+			buildableType == 1 ? "일반" : "벽 전용");
+		ImGui::Text("통과 가능: %s", passableMask == 3 ? "가능" : "불가");
+		return;
+	}
 
 	if (_selectedGridRow < 0 || _selectedGridCol < 0)
 	{
@@ -576,6 +760,252 @@ void LevelEditor::RenderOptionsPanel(LevelData& level)
 	}
 
 	ImGui::PopItemWidth();
+}
+
+void LevelEditor::RenderRouteEditor(LevelData& level)
+{
+	ImGui::SeparatorText("경로 편집");
+
+	int routeCount = 0;
+	if (level.fullData.contains("routes"))
+	{
+		routeCount = (int)level.fullData["routes"].size();
+	}
+
+	ImGui::Text("현재 경로 개수: %d", routeCount);
+	ImGui::Separator();
+
+	ImVec2 availRegion = ImGui::GetContentRegionAvail();
+	ImGui::BeginChild("RouteList", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
+
+	ImGui::Text("경로 목록");
+	ImGui::Separator();
+
+	if (routeCount == 0)
+	{
+		ImGui::TextColored(COLOR_GRAY, "경로가 없습니다.");
+	}
+	else
+	{
+		for (int i = 0; i < routeCount; ++i)
+		{
+			ImGui::PushID(i);
+
+			char routeName[32];
+			snprintf(routeName, sizeof(routeName), "Route %d", i);
+
+			if (ImGui::Selectable(routeName, false))
+			{
+				// TODO: 경로 선택 처리
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::Separator();
+
+	if (ImGui::Button("경로 추가", ImVec2(-1, 0)))
+	{
+		// TODO: 경로 추가 구현
+		ImGui::OpenPopup("경로 추가 안내");
+	}
+
+	if (ImGui::BeginPopupModal("경로 추가 안내", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("경로 추가 기능은 구현 예정입니다.");
+		ImGui::Separator();
+
+		if (ImGui::Button("확인", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	ImGui::BeginChild("RouteEditArea", ImVec2(0, availRegion.y - 60), true);
+
+	ImGui::Text("경로 편집 영역");
+	ImGui::Separator();
+
+	ImGui::TextWrapped("여기에 구현할 기능:");
+	ImGui::BulletText("그리드에 경로 시각화");
+	ImGui::BulletText("체크포인트 추가/삭제/순서 변경");
+	ImGui::BulletText("시작/종료 위치 설정");
+	ImGui::BulletText("이동 모드 설정 (지상/비행)");
+
+	ImGui::Spacing();
+	ImGui::TextColored(COLOR_GRAY, "경로를 선택하면 여기에 편집 UI가 표시됩니다.");
+
+	ImGui::EndChild();
+
+	ImGui::Separator();
+
+	if (!level.routeCompleted)
+	{
+		ImGui::TextColored(COLOR_YELLOW, "경로 편집을 완료하면 웨이브 편집을 시작할 수 있습니다.");
+
+		if (routeCount > 0)
+		{
+			level.routeCompleted = true;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+
+			std::cout << "[Level] Route Completed for " << level.levelId << '\n';
+
+			_editMode = EditMode::Wave;
+			_editModeChanged = true;
+		}
+		else
+		{
+			ImGui::BeginDisabled();
+			ImGui::Button("경로 편집 완료", ImVec2(200, 0));
+			ImGui::EndDisabled();
+
+			ImGui::SameLine();
+			ImGui::TextColored(COLOR_RED, "최소 1개 이상의 경로가 필요합니다.");
+		}
+	}
+	else
+	{
+		ImGui::TextColored(COLOR_GREEN, "경로 편집 완료됨");
+
+		if (ImGui::Button("경로 다시 편집", ImVec2(200, 0)))
+		{
+			level.routeCompleted = false;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+		}
+	}
+}
+
+void LevelEditor::RenderWaveEditor(LevelData& level)
+{
+	ImGui::SeparatorText("웨이브 편집");
+
+	// 웨이브 개수 표시
+	int waveCount = 0;
+	if (level.fullData.contains("waves"))
+	{
+		waveCount = (int)level.fullData["waves"].size();
+	}
+
+	ImGui::Text("현재 웨이브 개수: %d", waveCount);
+	ImGui::Separator();
+
+	// 좌 30%
+	ImVec2 availRegion = ImGui::GetContentRegionAvail();
+	ImGui::BeginChild("WaveList", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
+
+	ImGui::Text("웨이브 목록");
+	ImGui::Separator();
+
+	if (waveCount == 0)
+	{
+		ImGui::TextColored(COLOR_GRAY, "웨이브가 없습니다.");
+	}
+	else
+	{
+		for (int i = 0; i < waveCount; ++i)
+		{
+			ImGui::PushID(i);
+
+			char waveName[32];
+			snprintf(waveName, sizeof(waveName), "Wave %d", i);
+
+			if (ImGui::Selectable(waveName, false))
+			{
+				// TODO: 웨이브 선택 처리
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::Separator();
+
+	if (ImGui::Button("웨이브 추가", ImVec2(-1, 0)))
+	{
+		// TODO: 웨이브 추가 구현
+		ImGui::OpenPopup("웨이브 추가 안내");
+	}
+
+	if (ImGui::BeginPopupModal("웨이브 추가 안내", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("웨이브 추가 기능은 구현 예정입니다.");
+		ImGui::Separator();
+
+		if (ImGui::Button("확인", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	// 우 70%
+	ImGui::BeginChild("WaveEditArea", ImVec2(0, availRegion.y - 60), true);
+
+	ImGui::TextColored(COLOR_YELLOW, "웨이브 편집 영역");
+	ImGui::Separator();
+
+	ImGui::TextWrapped("여기에 구현할 기능:");
+	ImGui::BulletText("웨이브 추가/삭제");
+	ImGui::BulletText("Fragment 관리");
+	ImGui::BulletText("적 배치 (enemyDbRefs에서 선택)");
+	ImGui::BulletText("스폰 타이밍 설정");
+	ImGui::BulletText("경로 선택");
+
+	ImGui::Spacing();
+	ImGui::TextColored(COLOR_GRAY, "웨이브를 선택하면 여기에 편집 UI가 표시됩니다.");
+
+	ImGui::EndChild();
+
+	ImGui::Separator();
+
+	if (!level.waveCompleted)
+	{
+		ImGui::TextColored(COLOR_YELLOW, "웨이브 편집을 완료하면 레벨 제작이 완료됩니다.");
+
+		// 최소 1개 이상의 웨이브가 있어야 완료 가능
+		if (waveCount > 0)
+		{
+			if (ImGui::Button("웨이브 편집 완료", ImVec2(200, 0)))
+			{
+				level.waveCompleted = true;
+				level.isModified = true;
+				_hasUnsavedChanges = true;
+
+				std::cout << "[Level] Wave completed for " << level.levelId << "\n";
+				std::cout << "[Level] All editing completed!\n";
+			}
+		}
+		else
+		{
+			ImGui::BeginDisabled();
+			ImGui::Button("웨이브 편집 완료", ImVec2(200, 0));
+			ImGui::EndDisabled();
+
+			ImGui::SameLine();
+			ImGui::TextColored(COLOR_RED, "최소 1개 이상의 웨이브가 필요합니다.");
+		}
+	}
+	else
+	{
+		ImGui::TextColored(COLOR_GREEN, "웨이브 편집 완료됨");
+		ImGui::TextColored(COLOR_GREEN, "레벨 제작 완료!");
+
+		if (ImGui::Button("웨이브 다시 편집", ImVec2(200, 0)))
+		{
+			level.waveCompleted = false;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+		}
+	}
 }
 
 std::vector<std::string> LevelEditor::GetLevelFiles() const
@@ -646,8 +1076,17 @@ LevelEditor::LevelData LevelEditor::LoadLevelFromFile(const std::string& fileNam
 				level.costIncreaseTime = opts.value("costIncreaseTime", 1.0f);
 			}
 
+			// 커스텀 데이터 불러오기
+			if (level.fullData.contains("editorMetadata"))
+			{
+				auto& meta = level.fullData["editorMetadata"];
+				level.gridCompleted = meta.value("gridCompleted", false);
+				level.routeCompleted = meta.value("routeCompleted", false);
+				level.waveCompleted = meta.value("waveCompleted", false);
+			}
+
 			// 그리드 데이터 동기화
-				SyncGridFromJson(level);
+			SyncGridFromJson(level);
 
 			level.isModified = false;
 
@@ -682,6 +1121,13 @@ void LevelEditor::SaveLevelToFile(const LevelData& level)
 
 	// 맵 데이터 업데이트
 	saveData["mapData"] = level.fullData["mapData"];
+
+	// 커스텀 필드
+	saveData["editorMetadata"] = {
+		{"gridCompleted", level.gridCompleted},
+		{"routeCompleted", level.routeCompleted},
+		{"waveCompleted", level.waveCompleted}
+	};
 
 	// 파일 저장
 	fs::create_directories(_jsonPath);

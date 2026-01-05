@@ -50,6 +50,20 @@ private:
         json fullData;                          // 전체 JSON 데이터
 
         bool isModified = false;                // 수정 여부
+
+        // 완성 상태 추적
+        bool gridCompleted = false;
+        bool routeCompleted = false;
+        bool waveCompleted = false;
+    };
+
+    // edit 상태
+    enum class EditMode
+    {
+        Grid,
+        Route,
+        Wave,
+        MAX
     };
 
 private:
@@ -65,6 +79,9 @@ private:
 	bool _showCreateWindow = false;
 	bool _showEditWindow = false;
     int _selectedLevelIndex = -1;
+
+    EditMode _editMode = EditMode::Grid;
+    bool _editModeChanged = false;
 
     // 삭제 확인
     bool _showDeleteConfirm = false;
@@ -89,6 +106,8 @@ private:
     void RenderGridEditor(LevelData& level);
     void RenderTileInspector(LevelData& level);
     void RenderOptionsPanel(LevelData& level);
+    void RenderRouteEditor(LevelData& level);
+    void RenderWaveEditor(LevelData& level);
 
     // 레벨 파일 관리
     std::vector<std::string> GetLevelFiles() const;

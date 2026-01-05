@@ -678,7 +678,7 @@ void LevelEditor::SaveLevelToFile(const LevelData& level)
 	saveData["options"]["maxLifePoint"] = level.maxLifePoint;
 	saveData["options"]["initialCost"] = level.initialCost;
 	saveData["options"]["maxCost"] = level.maxCost;
-	saveData["options"]["costIncreaseTime"] = level.costIncreaseTime;
+	saveData["options"]["costIncreaseTime"] = Snap1(static_cast<double>(level.costIncreaseTime));
 
 	// 맵 데이터 업데이트
 	saveData["mapData"] = level.fullData["mapData"];
@@ -719,7 +719,7 @@ void LevelEditor::InitializeEmptyLevel(LevelData& level, const std::string& leve
 			{"maxLifePoint", level.maxLifePoint},
 			{"initialCost", level.initialCost},
 			{"maxCost", level.maxCost},
-			{"costIncreaseTime", level.costIncreaseTime},
+			{"costIncreaseTime", Snap1(static_cast<double>(level.costIncreaseTime))},
 			{"moveMultiplier", 0.5},
 			{"steeringEnabled", true},
 			{"isTrainingLevel", false},

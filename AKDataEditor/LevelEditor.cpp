@@ -735,6 +735,12 @@ void LevelEditor::RenderOptionsPanel(LevelData& level)
 
 	ImGui::PushItemWidth(150);
 
+	if (ImGui::InputInt("오퍼레이터 최대 배치 수", &level.characterLimit))
+	{
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+	}
+
 	if (ImGui::InputInt("최대 라이프", &level.maxLifePoint))
 	{
 		level.isModified = true;
@@ -1070,6 +1076,7 @@ LevelEditor::LevelData LevelEditor::LoadLevelFromFile(const std::string& fileNam
 			if (level.fullData.contains("options"))
 			{
 				auto& opts = level.fullData["options"];
+				level.characterLimit = opts.value("characterLimit", 8);
 				level.maxLifePoint = opts.value("maxLifePoint", 3);
 				level.initialCost = opts.value("initialCost", 10);
 				level.maxCost = opts.value("maxCost", 99);
@@ -1114,6 +1121,7 @@ void LevelEditor::SaveLevelToFile(const LevelData& level)
 	json saveData = level.fullData;
 
 	// 옵션 업데이트
+	saveData["options"]["characterLimit"] = level.characterLimit;
 	saveData["options"]["maxLifePoint"] = level.maxLifePoint;
 	saveData["options"]["initialCost"] = level.initialCost;
 	saveData["options"]["maxCost"] = level.maxCost;
@@ -1150,6 +1158,7 @@ void LevelEditor::InitializeEmptyLevel(LevelData& level, const std::string& leve
 {
 	level.fileName = FormatLevelFileName(levelId);
 	level.levelId = levelId;
+	level.characterLimit = 8;
 	level.gridRows = 6;
 	level.gridCols = 9;
 	level.maxLifePoint = 3;
@@ -1161,7 +1170,7 @@ void LevelEditor::InitializeEmptyLevel(LevelData& level, const std::string& leve
 	// JSON 기본 구조 생성
 	level.fullData = {
 		{"options", {
-			{"characterLimit", 8},
+			{"characterLimit", level.characterLimit},
 			{"maxLifePoint", level.maxLifePoint},
 			{"initialCost", level.initialCost},
 			{"maxCost", level.maxCost},

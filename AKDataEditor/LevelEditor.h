@@ -38,6 +38,7 @@ private:
     {
         std::string fileName;              // level_main_00-01.json
         std::string levelId;               // 00-01
+        int characterLimit = 8;
         int gridRows = 6;
         int gridCols = 9;
         int maxLifePoint = 3;

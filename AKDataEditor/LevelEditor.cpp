@@ -355,7 +355,7 @@ void LevelEditor::RenderEditWindow()
 		ImGui::Text("|");
 		ImGui::SameLine();
 
-		if (level.gridCompleted)
+		if (level.waveCompleted)
 		{
 			ImGui::TextColored(COLOR_GREEN, "웨이브 완료");
 		}
@@ -779,9 +779,18 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 	}
 
 	ImGui::Text("현재 경로 개수: %d", routeCount);
+
+	if (_selectedRouteIndex >= 0 && _selectedRouteIndex < routeCount)
+	{
+		ImGui::SameLine();
+		ImGui::TextColored(COLOR_YELLOW, " | 선택된 경로: Route %d", _selectedRouteIndex);
+	}
+
 	ImGui::Separator();
 
 	ImVec2 availRegion = ImGui::GetContentRegionAvail();
+
+	// 좌 30%
 	ImGui::BeginChild("RouteList", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
 
 	ImGui::Text("경로 목록");
@@ -800,9 +809,21 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 			char routeName[32];
 			snprintf(routeName, sizeof(routeName), "Route %d", i);
 
+			bool isSelected = (_selectedRouteIndex == i);
+			if (isSelected)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.6f, 0.3f, 1.0f));
+			}
+
 			if (ImGui::Selectable(routeName, false))
 			{
-				// TODO: 경로 선택 처리
+				_selectedRouteIndex = i;
+				std::cout << "[Route] Selected route " << i << "\n";
+			}
+
+			if (isSelected)
+			{
+				ImGui::PopStyleColor();
 			}
 
 			ImGui::PopID();
@@ -813,42 +834,212 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 
 	if (ImGui::Button("경로 추가", ImVec2(-1, 0)))
 	{
-		// TODO: 경로 추가 구현
-		ImGui::OpenPopup("경로 추가 안내");
+		json newRoute = {
+			{"motionMode", 0},  // 0=지상, 2=비행
+			{"startPosition", {{"row", -1}, {"col", -1}}},
+			{"endPosition", {{"row", -1}, {"col", -1}}},
+			{"spawnRandomRange", {{"x", 0.0}, {"y", 0.0}}},
+			{"spawnOffset", {{"x", 0.0}, {"y", 0.0}}},
+			{"checkpoints", json::array()},
+			{"allowDiagonalMove", true},
+			{"visitEveryTileCenter", false},
+			{"visitEveryNodeCenter", false},
+			{"visitEveryCheckPoint", false}
+		};
+
+		level.fullData["routes"].push_back(newRoute);
+		_selectedRouteIndex = routeCount;
+
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+
+		std::cout << "[Route] Added new route (total: " << (routeCount + 1) << ")\n";
 	}
 
-	if (ImGui::BeginPopupModal("경로 추가 안내", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	if (_selectedRouteIndex >= 0 && _selectedRouteIndex < routeCount)
 	{
-		ImGui::Text("경로 추가 기능은 구현 예정입니다.");
-		ImGui::Separator();
-
-		if (ImGui::Button("확인", ImVec2(120, 0)))
+		if (ImGui::Button("경로 삭제", ImVec2(-1, 0)))
 		{
-			ImGui::CloseCurrentPopup();
+			_showRouteDeleteConfirm = true;
 		}
-
-		ImGui::EndPopup();
 	}
+	
 	ImGui::EndChild();
 
 	ImGui::SameLine();
 
+	// 우 70%
 	ImGui::BeginChild("RouteEditArea", ImVec2(0, availRegion.y - 60), true);
 
-	ImGui::Text("경로 편집 영역");
-	ImGui::Separator();
+	if (_selectedRouteIndex >= 0 && _selectedRouteIndex < routeCount)
+	{
+		auto& route = level.fullData["routes"][_selectedRouteIndex];
 
-	ImGui::TextWrapped("여기에 구현할 기능:");
-	ImGui::BulletText("그리드에 경로 시각화");
-	ImGui::BulletText("체크포인트 추가/삭제/순서 변경");
-	ImGui::BulletText("시작/종료 위치 설정");
-	ImGui::BulletText("이동 모드 설정 (지상/비행)");
+		// 경로 설정
+		ImGui::Text("경로 설정");
+		ImGui::Separator();
 
-	ImGui::Spacing();
-	ImGui::TextColored(COLOR_GRAY, "경로를 선택하면 여기에 편집 UI가 표시됩니다.");
+		int motionMode = route.value("motionMode", 0);
+		const char* motionModes[] = { "지상", "비행" };
+		int motionModeIndex = (motionMode == 2) ? 1 : 0;
+
+		ImGui::Text("이동 모드:");
+		ImGui::SameLine();
+		if (ImGui::Combo("##MotionMode", &motionModeIndex, motionModes, 2))
+		{
+			route["motionMode"] = (motionModeIndex == 1) ? 2 : 0;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("타일 범례:");
+		ImGui::Spacing();
+
+		const char* tileTypes[] = { "금지", "도로", "벽", "시작", "종료", "고지", "구멍" };
+
+		// 폰트 크기 1.2배로 키우기
+		ImGui::SetWindowFontScale(1.2f);
+
+		for (int i = 0; i < (int)TileType::MAX; i++)
+		{
+			ImU32 color = GetTileColor((TileType)i);
+			ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(color);
+
+			// 색상 박스 그리기
+			ImGui::PushStyleColor(ImGuiCol_Button, colorVec);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colorVec);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, colorVec);
+			ImGui::Button("##", ImVec2(20, 20));  
+			ImGui::PopStyleColor(3);
+
+			ImGui::SameLine(0.0f, 5.0f);  
+
+			// 텍스트
+			ImGui::PushStyleColor(ImGuiCol_Text, colorVec);
+			ImGui::Text("%s", tileTypes[i]);
+			ImGui::PopStyleColor();
+
+			if (i < (int)TileType::MAX - 1)
+			{
+				ImGui::SameLine(0.0f, 15.0f);
+			}
+		}
+
+		// 폰트 크기 원래대로
+		ImGui::SetWindowFontScale(1.0f);
+
+		ImGui::Separator();
+
+		if (!_routeEditMode)
+		{
+			if (ImGui::Button("경로 편집 시작", ImVec2(-1, 0)))
+			{
+				_routeEditMode = true;
+				_routeEditStep = RouteEditStep::SetStart;
+				std::cout << "[Route] Route edit mode started\n";
+			}
+
+			auto& startPos = route["startPosition"];
+			auto& endPos = route["endPosition"];
+			int startRow = startPos.value("row", 0);
+			int startCol = startPos.value("col", 0);
+			int endRow = endPos.value("row", 0);
+			int endCol = endPos.value("col", 0);
+
+			ImGui::Separator();
+			ImGui::Text("시작 위치: (%d, %d)", startCol, startRow);
+			ImGui::Text("종료 위치: (%d, %d)", endCol, endRow);
+		}
+		else
+		{
+			// 현재 단계 표시
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.3f, 0.3f, 1.0f));
+			if (ImGui::Button("경로 편집 종료", ImVec2(-1, 0)))
+			{
+				_routeEditMode = false;
+				std::cout << "[Route] Route edit mode ended\n";
+			}
+			ImGui::PopStyleColor();
+
+			ImGui::Separator();
+
+			if (_routeEditStep == RouteEditStep::SetStart)
+			{
+				ImGui::TextColored(COLOR_GREEN, "1단계: 시작 위치를 그리드에서 클릭하세요");
+			}
+			else if (_routeEditStep == RouteEditStep::SetEnd)
+			{
+				ImGui::TextColored(COLOR_GREEN, "2단계: 종료 위치를 그리드에서 클릭하세요");
+			}
+			else if (_routeEditStep == RouteEditStep::AddCheckpoints)
+			{
+				ImGui::TextColored(COLOR_GREEN, "3단계: 체크포인트를 그리드에서 클릭하세요");
+				ImGui::TextColored(COLOR_YELLOW, "우클릭: 마지막 체크포인트 제거");
+			}
+		}
+
+		ImGui::Separator();
+
+		// 체크포인트 목록
+		ImGui::Text("체크포인트");
+
+		int checkpointCount = (int)route["checkpoints"].size();
+		ImGui::Text("개수: %d", checkpointCount);
+
+		ImGui::Separator();
+
+		if (checkpointCount > 0)
+		{
+			ImGui::BeginChild("CheckpointList", ImVec2(0, 200), true);
+
+			for (int i = 0; i < checkpointCount; ++i)
+			{
+				ImGui::PushID(i);
+
+				auto& cp = route["checkpoints"][i];
+				int cpRow = cp["position"].value("row", 0);
+				int cpCol = cp["position"].value("col", 0);
+
+				ImGui::Text("%d. (%d, %d)", i, cpCol, cpRow);
+
+				ImGui::SameLine(150);
+				if (ImGui::SmallButton("삭제"))
+				{
+					route["checkpoints"].erase(route["checkpoints"].begin() + i);
+					level.isModified = true;
+					_hasUnsavedChanges = true;
+					std::cout << "[Route] Removed checkpoint " << i << "\n";
+					ImGui::PopID();
+					break;
+				}
+
+				ImGui::PopID();
+			}
+
+			ImGui::EndChild();
+		}
+		else
+		{
+			ImGui::TextColored(COLOR_GRAY, "체크포인트가 없습니다.");
+		}
+
+		// 그리드 시각화
+		ImGui::Separator();
+		ImGui::Text("경로 미리보기");
+		ImGui::Separator();
+
+		RenderRouteOnGrid(level, route);
+	}
+	else
+	{
+		ImGui::TextColored(COLOR_GRAY, "경로를 선택하세요.");
+	}
 
 	ImGui::EndChild();
 
+	// 완료 버튼
 	ImGui::Separator();
 
 	if (!level.routeCompleted)
@@ -857,14 +1048,17 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 
 		if (routeCount > 0)
 		{
-			level.routeCompleted = true;
-			level.isModified = true;
-			_hasUnsavedChanges = true;
+			if (ImGui::Button("경로 편집 완료", ImVec2(200, 0)))
+			{
+				level.routeCompleted = true;
+				level.isModified = true;
+				_hasUnsavedChanges = true;
 
-			std::cout << "[Level] Route Completed for " << level.levelId << '\n';
+				std::cout << "[Level] Route Completed for " << level.levelId << '\n';
 
-			_editMode = EditMode::Wave;
-			_editModeChanged = true;
+				_editMode = EditMode::Wave;
+				_editModeChanged = true;
+			}
 		}
 		else
 		{
@@ -887,6 +1081,236 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 			_hasUnsavedChanges = true;
 		}
 	}
+
+	// 삭제 팝업
+	if (_showRouteDeleteConfirm)
+	{
+		ImGui::OpenPopup("경로 삭제 확인");
+		_showRouteDeleteConfirm = false;
+	}
+
+	if (ImGui::BeginPopupModal("경로 삭제 확인", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextColored(COLOR_RED, "이 경로를 정말 삭제할까요?");
+		ImGui::Separator();
+
+		ImGui::Text("대상: Route %d", _selectedRouteIndex);
+
+		ImGui::Separator();
+
+		if (ImGui::Button("예", ImVec2(120, 0)))
+		{
+			level.fullData["routes"].erase(level.fullData["routes"].begin() + _selectedRouteIndex);
+			_selectedRouteIndex = -1;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+
+			std::cout << "[Route] Route deleted\n";
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("아니요", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
+void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
+{
+	ImDrawList* draw_list = ImGui::GetWindowDrawList();
+	ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+	ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+
+	float cellSize = std::min(
+		canvas_size.x / level.gridCols,
+		canvas_size.y / level.gridRows
+	) * 0.9f;
+
+	// 그리드 배경 + 타일 정보 그리기
+	for (int jsonRow = 0; jsonRow < level.gridRows; ++jsonRow)
+	{
+		int gameRow = JsonIndexToGameRow(jsonRow, level.gridRows);
+
+		for (int col = 0; col < level.gridCols; ++col)
+		{
+			ImVec2 p_min(
+				canvas_pos.x + col * cellSize,
+				canvas_pos.y + jsonRow * cellSize
+			);
+			ImVec2 p_max(p_min.x + cellSize, p_min.y + cellSize);
+
+			// 타일 타입에 따른 색상 (연하게)
+			int tileIndex = jsonRow * level.gridCols + col;
+			TileType tileType = TileType::Forbidden;
+
+			if (tileIndex < (int)level.tiles.size())
+			{
+				std::string tileKey = level.tiles[tileIndex].value("tileKey", "tile_forbidden");
+				if (tileKey == "tile_road") tileType = TileType::Road;
+				else if (tileKey == "tile_wall") tileType = TileType::Wall;
+				else if (tileKey == "tile_start") tileType = TileType::Start;
+				else if (tileKey == "tile_end") tileType = TileType::End;
+				else if (tileKey == "tile_highground") tileType = TileType::HighGround;
+				else if (tileKey == "tile_hole") tileType = TileType::Hole;
+			}
+
+			// 타일 색상 (투명도 낮춤)
+			ImU32 baseColor = GetTileColor(tileType);
+			ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(baseColor);
+			colorVec.w = 0.3f;  // 투명도 30%
+			ImU32 tileColor = ImGui::ColorConvertFloat4ToU32(colorVec);
+
+			draw_list->AddRectFilled(p_min, p_max, tileColor);
+			draw_list->AddRect(p_min, p_max, IM_COL32(100, 100, 100, 255));
+
+			// 마우스 클릭 처리 (경로 편집 모드일 때만)
+			if (_routeEditMode && ImGui::IsMouseClicked(0))
+			{
+				ImVec2 mouse = ImGui::GetMousePos();
+				if (mouse.x >= p_min.x && mouse.x <= p_max.x &&
+					mouse.y >= p_min.y && mouse.y <= p_max.y)
+				{
+					if (_routeEditStep == RouteEditStep::SetStart)
+					{
+						// 시작 위치 설정
+						route["startPosition"]["row"] = gameRow;
+						route["startPosition"]["col"] = col;
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+
+						std::cout << "[Route] Start position set to (" << col << ", " << gameRow << ")\n";
+						_routeEditStep = RouteEditStep::SetEnd;
+					}
+					else if (_routeEditStep == RouteEditStep::SetEnd)
+					{
+						// 종료 위치 설정
+						route["endPosition"]["row"] = gameRow;
+						route["endPosition"]["col"] = col;
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+
+						std::cout << "[Route] End position set to (" << col << ", " << gameRow << ")\n";
+						_routeEditStep = RouteEditStep::AddCheckpoints;
+					}
+					else if (_routeEditStep == RouteEditStep::AddCheckpoints)
+					{
+						// 체크포인트 추가
+						json newCheckpoint = {
+							{"type", 0},
+							{"time", 0.0},
+							{"position", {{"row", gameRow}, {"col", col}}},
+							{"reachOffset", {{"x", 0.0}, {"y", 0.0}}},
+							{"randomizeReachOffset", false},
+							{"reachDistance", 0.0}
+						};
+
+						route["checkpoints"].push_back(newCheckpoint);
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+
+						std::cout << "[Route] Added checkpoint at (" << col << ", " << gameRow << ")\n";
+					}
+				}
+			}
+
+			// 우클릭 Undo (체크포인트만 제거)
+			if (_routeEditMode && _routeEditStep == RouteEditStep::AddCheckpoints &&
+				ImGui::IsMouseClicked(1))  // 1 = 우클릭
+			{
+				ImVec2 mouse = ImGui::GetMousePos();
+				if (mouse.x >= p_min.x && mouse.x <= p_max.x &&
+					mouse.y >= p_min.y && mouse.y <= p_max.y)
+				{
+					if (!route["checkpoints"].empty())
+					{
+						route["checkpoints"].erase(route["checkpoints"].end() - 1);
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+						std::cout << "[Route] Undo - removed last checkpoint\n";
+					}
+				}
+			}
+		}
+	}
+
+	// 시작 위치 그리기 (초록 원)
+	auto& startPos = route["startPosition"];
+	int startRow = startPos.value("row", 0);
+	int startCol = startPos.value("col", 0);
+	int startJsonRow = GameRowToJsonIndex(startRow, level.gridRows);
+
+	ImVec2 startCenter(
+		canvas_pos.x + (startCol + 0.5f) * cellSize,
+		canvas_pos.y + (startJsonRow + 0.5f) * cellSize
+	);
+	draw_list->AddCircleFilled(startCenter, cellSize * 0.3f, IM_COL32(0, 255, 0, 255));
+	draw_list->AddText(ImVec2(startCenter.x - 10, startCenter.y - 10), IM_COL32(255, 255, 255, 255), "S");
+
+	// 종료 위치 그리기 (빨간 원)
+	auto& endPos = route["endPosition"];
+	int endRow = endPos.value("row", 0);
+	int endCol = endPos.value("col", 0);
+	int endJsonRow = GameRowToJsonIndex(endRow, level.gridRows);
+
+	ImVec2 endCenter(
+		canvas_pos.x + (endCol + 0.5f) * cellSize,
+		canvas_pos.y + (endJsonRow + 0.5f) * cellSize
+	);
+	draw_list->AddCircleFilled(endCenter, cellSize * 0.3f, IM_COL32(255, 0, 0, 255));
+	draw_list->AddText(ImVec2(endCenter.x - 10, endCenter.y - 10), IM_COL32(255, 255, 255, 255), "E");
+
+	// 체크포인트 그리기 (노란 원 + 번호)
+	auto& checkpoints = route["checkpoints"];
+	for (size_t i = 0; i < checkpoints.size(); ++i)
+	{
+		auto& cp = checkpoints[i];
+		int cpRow = cp["position"].value("row", 0);
+		int cpCol = cp["position"].value("col", 0);
+		int cpJsonRow = GameRowToJsonIndex(cpRow, level.gridRows);
+
+		ImVec2 cpCenter(
+			canvas_pos.x + (cpCol + 0.5f) * cellSize,
+			canvas_pos.y + (cpJsonRow + 0.5f) * cellSize
+		);
+
+		draw_list->AddCircleFilled(cpCenter, cellSize * 0.25f, IM_COL32(255, 255, 0, 255));
+
+		char cpText[8];
+		snprintf(cpText, sizeof(cpText), "%d", (int)i);
+		draw_list->AddText(ImVec2(cpCenter.x - 5, cpCenter.y - 8), IM_COL32(0, 0, 0, 255), cpText);
+	}
+
+	// 경로 선 그리기 (시작 → 체크포인트들 → 종료)
+
+	if (_routeEditStep == RouteEditStep::AddCheckpoints)
+	{
+		ImVec2 prevCenter = startCenter;
+
+		for (auto& cp : checkpoints)
+		{
+			int cpRow = cp["position"].value("row", 0);
+			int cpCol = cp["position"].value("col", 0);
+			int cpJsonRow = GameRowToJsonIndex(cpRow, level.gridRows);
+
+			ImVec2 cpCenter(
+				canvas_pos.x + (cpCol + 0.5f) * cellSize,
+				canvas_pos.y + (cpJsonRow + 0.5f) * cellSize
+			);
+
+			draw_list->AddLine(prevCenter, cpCenter, IM_COL32(100, 200, 255, 255), 2.0f);
+			prevCenter = cpCenter;
+		}
+
+		draw_list->AddLine(prevCenter, endCenter, IM_COL32(100, 200, 255, 255), 2.0f);
+	}
+	
+	// 캔버스 영역
+	ImGui::InvisibleButton("routeCanvas", ImVec2(level.gridCols * cellSize, level.gridRows * cellSize));
 }
 
 void LevelEditor::RenderWaveEditor(LevelData& level)

@@ -67,6 +67,15 @@ private:
         MAX
     };
 
+    // 경로 편집 단계
+    enum class RouteEditStep
+    {
+        SetStart,
+        SetEnd,
+        AddCheckpoints,
+        MAX
+    };
+
 private:
 	std::string _jsonPath;
 
@@ -97,6 +106,16 @@ private:
     int _selectedGridRow = -1;
     int _selectedGridCol = -1;
 
+    // 경로 편집 상태
+    int _selectedRouteIndex = -1;              
+    int _editingCheckpointIndex = -1;         
+    bool _showRouteDeleteConfirm = false; 
+    RouteEditStep _routeEditStep = RouteEditStep::SetStart;
+    bool _routeEditMode = false;
+
+    // 웨이브 편집 상태
+    int _selectedWaveIndex = -1;
+
 	// gui render
 	void RenderToolbar();
 	void RenderLevelsList();
@@ -108,6 +127,7 @@ private:
     void RenderTileInspector(LevelData& level);
     void RenderOptionsPanel(LevelData& level);
     void RenderRouteEditor(LevelData& level);
+    void RenderRouteOnGrid(LevelData& level, json& route);
     void RenderWaveEditor(LevelData& level);
 
     // 레벨 파일 관리

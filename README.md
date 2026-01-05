@@ -24,25 +24,6 @@ Dear ImGui 기반의 **게임 데이터 편집 툴**입니다.
 
 ---
 
-## 📦 배포 ZIP 구조 (v1.1)
-
-릴리즈 ZIP을 압축 해제하면 아래와 같은 구조입니다.
-
-```
-AK Data Editor/
-├─ fonts/
-├─ AKDataEditor.exe
-└─ Readme.txt
-```
-
-- `fonts/` : ImGui/툴에서 사용하는 폰트 리소스
-- `AKDataEditor.exe` : 실행 파일
-- `Readme.txt` : 빠른 실행 안내(요약)
-
-> 폴더/파일 이름은 릴리즈 버전에 따라 약간 달라질 수 있습니다.
-
----
-
 ## 🚀 설치 및 실행 방법
 
 1. 릴리즈 ZIP을 다운로드 후 원하는 위치에 **압축 해제**
@@ -61,9 +42,12 @@ AK Data Editor/
 
 ```
 gamedata/
+├─ levels/
+│  ├─ level_main_*.json
 └─ tables/
    ├─ operators_table.json
    └─ enemies_table.json
+
 ```
 
 - 파일이 없거나 경로가 다르면 목록이 비어 보일 수 있습니다.

@@ -38,6 +38,7 @@ private:
     {
         std::string fileName;              // level_main_00-01.json
         std::string levelId;               // 00-01
+        int characterLimit = 8;
         int gridRows = 6;
         int gridCols = 9;
         int maxLifePoint = 3;
@@ -50,6 +51,29 @@ private:
         json fullData;                          // 전체 JSON 데이터
 
         bool isModified = false;                // 수정 여부
+
+        // 완성 상태 추적
+        bool gridCompleted = false;
+        bool routeCompleted = false;
+        bool waveCompleted = false;
+    };
+
+    // edit 상태
+    enum class EditMode
+    {
+        Grid,
+        Route,
+        Wave,
+        MAX
+    };
+
+    // 경로 편집 단계
+    enum class RouteEditStep
+    {
+        SetStart,
+        SetEnd,
+        AddCheckpoints,
+        MAX
     };
 
 private:
@@ -66,6 +90,9 @@ private:
 	bool _showEditWindow = false;
     int _selectedLevelIndex = -1;
 
+    EditMode _editMode = EditMode::Grid;
+    bool _editModeChanged = false;
+
     // 삭제 확인
     bool _showDeleteConfirm = false;
     int _deleteTargetIndex = -1;
@@ -79,6 +106,16 @@ private:
     int _selectedGridRow = -1;
     int _selectedGridCol = -1;
 
+    // 경로 편집 상태
+    int _selectedRouteIndex = -1;              
+    int _editingCheckpointIndex = -1;         
+    bool _showRouteDeleteConfirm = false; 
+    RouteEditStep _routeEditStep = RouteEditStep::SetStart;
+    bool _routeEditMode = false;
+
+    // 웨이브 편집 상태
+    int _selectedWaveIndex = -1;
+
 	// gui render
 	void RenderToolbar();
 	void RenderLevelsList();
@@ -89,6 +126,9 @@ private:
     void RenderGridEditor(LevelData& level);
     void RenderTileInspector(LevelData& level);
     void RenderOptionsPanel(LevelData& level);
+    void RenderRouteEditor(LevelData& level);
+    void RenderRouteOnGrid(LevelData& level, json& route);
+    void RenderWaveEditor(LevelData& level);
 
     // 레벨 파일 관리
     std::vector<std::string> GetLevelFiles() const;

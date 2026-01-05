@@ -68,4 +68,3 @@ gamedata/
 
 - Dear ImGui — UI
 - nlohmann/json — JSON parsing/serialization
-- 라이선스 정책은 레포의 LICENSE(있다면)를 따릅니다.

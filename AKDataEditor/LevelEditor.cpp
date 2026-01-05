@@ -906,6 +906,10 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 		{
 			ImU32 color = GetTileColor((TileType)i);
 			ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(color);
+			colorVec.x = colorVec.x * 0.6f + 0.4f;  // B
+			colorVec.y = colorVec.y * 0.6f + 0.4f;  // G
+			colorVec.z = colorVec.z * 0.6f + 0.4f;  // R
+			colorVec.w = 1.0f;  // A
 
 			// 색상 박스 그리기
 			ImGui::PushStyleColor(ImGuiCol_Button, colorVec);
@@ -1050,6 +1054,10 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 		{
 			if (ImGui::Button("경로 편집 완료", ImVec2(200, 0)))
 			{
+				// 경로 편집 모드 종료
+				_routeEditMode = false;
+				_selectedRouteIndex = -1;
+
 				level.routeCompleted = true;
 				level.isModified = true;
 				_hasUnsavedChanges = true;
@@ -1162,7 +1170,10 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 			// 타일 색상 (투명도 낮춤)
 			ImU32 baseColor = GetTileColor(tileType);
 			ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(baseColor);
-			colorVec.w = 0.3f;  // 투명도 30%
+			colorVec.x = colorVec.x * 0.6f + 0.4f;  // B
+			colorVec.y = colorVec.y * 0.6f + 0.4f;  // G
+			colorVec.z = colorVec.z * 0.6f + 0.4f;  // R
+			colorVec.w = 1.0f;  // A
 			ImU32 tileColor = ImGui::ColorConvertFloat4ToU32(colorVec);
 
 			draw_list->AddRectFilled(p_min, p_max, tileColor);
@@ -1218,20 +1229,56 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 				}
 			}
 
-			// 우클릭 Undo (체크포인트만 제거)
-			if (_routeEditMode && _routeEditStep == RouteEditStep::AddCheckpoints &&
-				ImGui::IsMouseClicked(1))  // 1 = 우클릭
+			// 우클릭 Undo - 그리드 전체에서 동작하도록 수정
+			if (_routeEditMode && ImGui::IsMouseClicked(1))
 			{
+				// 캔버스 영역 체크
 				ImVec2 mouse = ImGui::GetMousePos();
-				if (mouse.x >= p_min.x && mouse.x <= p_max.x &&
-					mouse.y >= p_min.y && mouse.y <= p_max.y)
+				ImVec2 canvas_end(
+					canvas_pos.x + level.gridCols * cellSize,
+					canvas_pos.y + level.gridRows * cellSize
+				);
+
+				if (mouse.x >= canvas_pos.x && mouse.x <= canvas_end.x &&
+					mouse.y >= canvas_pos.y && mouse.y <= canvas_end.y)
 				{
-					if (!route["checkpoints"].empty())
+					if (_routeEditStep == RouteEditStep::AddCheckpoints && !route["checkpoints"].empty())
 					{
+						// 체크포인트 제거
 						route["checkpoints"].erase(route["checkpoints"].end() - 1);
 						level.isModified = true;
 						_hasUnsavedChanges = true;
 						std::cout << "[Route] Undo - removed last checkpoint\n";
+					}
+					else if (_routeEditStep == RouteEditStep::AddCheckpoints && route["checkpoints"].empty())
+					{
+						// 체크포인트가 없으면 종료 위치 제거
+						route["endPosition"]["row"] = -1;
+						route["endPosition"]["col"] = -1;
+						_routeEditStep = RouteEditStep::SetEnd;
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+						std::cout << "[Route] Undo - removed end position\n";
+					}
+					else if (_routeEditStep == RouteEditStep::SetEnd)
+					{
+						// 종료 위치 단계에서는 시작 위치로 돌아감
+						route["endPosition"]["row"] = -1;
+						route["endPosition"]["col"] = -1;
+						_routeEditStep = RouteEditStep::SetStart;
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+						std::cout << "[Route] Undo - back to start position\n";
+					}
+					else if (_routeEditStep == RouteEditStep::SetStart &&
+						route["startPosition"]["row"].get<int>() != -1)
+					{
+						// 시작 위치 제거
+						route["startPosition"]["row"] = -1;
+						route["startPosition"]["col"] = -1;
+						level.isModified = true;
+						_hasUnsavedChanges = true;
+						std::cout << "[Route] Undo - removed start position\n";
 					}
 				}
 			}
@@ -1285,28 +1332,37 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 		draw_list->AddText(ImVec2(cpCenter.x - 5, cpCenter.y - 8), IM_COL32(0, 0, 0, 255), cpText);
 	}
 
-	// 경로 선 그리기 (시작 → 체크포인트들 → 종료)
-
-	if (_routeEditStep == RouteEditStep::AddCheckpoints)
+	// 시작 위치가 유효한 경우에만 그리기
+	if (startRow >= 0 && startCol >= 0)
 	{
 		ImVec2 prevCenter = startCenter;
 
-		for (auto& cp : checkpoints)
+		// 종료 위치까지 선이 설정되어 있으면 시작→종료 선 그리기
+		if (_routeEditStep == RouteEditStep::AddCheckpoints ||
+			_routeEditStep == RouteEditStep::SetEnd)
 		{
-			int cpRow = cp["position"].value("row", 0);
-			int cpCol = cp["position"].value("col", 0);
-			int cpJsonRow = GameRowToJsonIndex(cpRow, level.gridRows);
+			// 체크포인트들 연결
+			for (auto& cp : checkpoints)
+			{
+				int cpRow = cp["position"].value("row", 0);
+				int cpCol = cp["position"].value("col", 0);
+				int cpJsonRow = GameRowToJsonIndex(cpRow, level.gridRows);
 
-			ImVec2 cpCenter(
-				canvas_pos.x + (cpCol + 0.5f) * cellSize,
-				canvas_pos.y + (cpJsonRow + 0.5f) * cellSize
-			);
+				ImVec2 cpCenter(
+					canvas_pos.x + (cpCol + 0.5f) * cellSize,
+					canvas_pos.y + (cpJsonRow + 0.5f) * cellSize
+				);
 
-			draw_list->AddLine(prevCenter, cpCenter, IM_COL32(100, 200, 255, 255), 2.0f);
-			prevCenter = cpCenter;
+				draw_list->AddLine(prevCenter, cpCenter, IM_COL32(100, 200, 255, 255), 2.0f);
+				prevCenter = cpCenter;
+			}
+
+			// 종료 위치가 유효하면 마지막 선 그리기
+			if (endRow >= 0 && endCol >= 0)
+			{
+				draw_list->AddLine(prevCenter, endCenter, IM_COL32(100, 200, 255, 255), 2.0f);
+			}
 		}
-
-		draw_list->AddLine(prevCenter, endCenter, IM_COL32(100, 200, 255, 255), 2.0f);
 	}
 	
 	// 캔버스 영역

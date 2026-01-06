@@ -143,6 +143,7 @@ private:
     void RenderFragmentList(json& wave);  
     void RenderFragmentEditor(LevelData& level, json& fragment);  
     void RenderEnemySelector(LevelData& level, json& fragment);  
+    void RenderRoutePreview(LevelData& level, int routeIndex);
 
     // 레벨 파일 관리
     std::vector<std::string> GetLevelFiles() const;

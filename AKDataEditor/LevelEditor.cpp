@@ -1250,7 +1250,7 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 			}
 		}
 	}
-
+	
 	// 시작 위치 그리기 (초록 원)
 	auto& startPos = route["startPosition"];
 	int startRow = startPos.value("row", 0);
@@ -1303,34 +1303,29 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 	{
 		ImVec2 prevCenter = startCenter;
 
-		// 종료 위치까지 선이 설정되어 있으면 시작→종료 선 그리기
-		if (_routeEditStep == RouteEditStep::AddCheckpoints ||
-			_routeEditStep == RouteEditStep::SetEnd)
+		// 체크포인트들 연결
+		for (auto& cp : checkpoints)
 		{
-			// 체크포인트들 연결
-			for (auto& cp : checkpoints)
-			{
-				int cpRow = cp["position"].value("row", 0);
-				int cpCol = cp["position"].value("col", 0);
-				int cpJsonRow = GameRowToJsonIndex(cpRow, level.gridRows);
+			int cpRow = cp["position"].value("row", 0);
+			int cpCol = cp["position"].value("col", 0);
+			int cpJsonRow = GameRowToJsonIndex(cpRow, level.gridRows);
 
-				ImVec2 cpCenter(
-					canvas_pos.x + (cpCol + 0.5f) * cellSize,
-					canvas_pos.y + (cpJsonRow + 0.5f) * cellSize
-				);
+			ImVec2 cpCenter(
+				canvas_pos.x + (cpCol + 0.5f) * cellSize,
+				canvas_pos.y + (cpJsonRow + 0.5f) * cellSize
+			);
 
-				draw_list->AddLine(prevCenter, cpCenter, IM_COL32(100, 200, 255, 255), 2.0f);
-				prevCenter = cpCenter;
-			}
+			draw_list->AddLine(prevCenter, cpCenter, IM_COL32(100, 200, 255, 255), 2.0f);
+			prevCenter = cpCenter;
+		}
 
-			// 종료 위치가 유효하면 마지막 선 그리기
-			if (endRow >= 0 && endCol >= 0)
-			{
-				draw_list->AddLine(prevCenter, endCenter, IM_COL32(100, 200, 255, 255), 2.0f);
-			}
+		// 종료 위치가 유효하면 마지막 선 그리기
+		if (endRow >= 0 && endCol >= 0)
+		{
+			draw_list->AddLine(prevCenter, endCenter, IM_COL32(100, 200, 255, 255), 2.0f);
 		}
 	}
-	
+
 	// 캔버스 영역
 	ImGui::InvisibleButton("routeCanvas", ImVec2(level.gridCols * cellSize, level.gridRows * cellSize));
 }
@@ -1355,7 +1350,12 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 	RenderWaveList(level, waveCount);
 	ImGui::EndChild();
 
-	ImGui::BeginChild("WaveEditArea", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
+	ImGui::SameLine();
+
+	ImGuiChildFlags flags = ImGuiChildFlags_Border |
+							ImGuiChildFlags_AlwaysUseWindowPadding;
+
+	ImGui::BeginChild("WaveEditArea", ImVec2(0, availRegion.y - 60), flags);
 	if (_selectedWaveIndex >= 0 && _selectedWaveIndex < waveCount)
 	{
 		auto& wave = level.fullData["waves"][_selectedWaveIndex];
@@ -1608,7 +1608,7 @@ void LevelEditor::RenderFragmentList(json& wave)
 
 	ImGui::Separator();
 
-	ImGui::BeginChild("FragmentList", ImVec2(0, 150), true);
+	ImGui::BeginChild("FragmentList", ImVec2(0, 100), true);
 
 	if (fragmentCount == 0)
 	{
@@ -1695,7 +1695,10 @@ void LevelEditor::RenderFragmentEditor(LevelData& level, json& fragment)
 	ImGui::Text("적 스폰 목록: %d", actionCount);
 	ImGui::Separator();
 
-	ImGui::BeginChild("ActionList", ImVec2(0, 200), true);
+	ImGuiChildFlags flags = ImGuiChildFlags_Border |
+							ImGuiChildFlags_AutoResizeY;
+
+	ImGui::BeginChild("ActionList", ImVec2(0, 0), flags);
 
 	if (actionCount == 0)
 	{
@@ -1743,14 +1746,12 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 	// Combo로 적 선택
 	if (_enemyKeys.empty())
 	{
-		ImGui::TextColored(COLOR_RED, "enemy_table.json을 로드할 수 없습니다!");
-		ImGui::Text("경로: gamedata/tables/enemy_table.json");
+		ImGui::TextColored(COLOR_RED, "enemies_table.json을 로드할 수 없습니다!");
 	}
 	else
 	{
 		ImGui::Text("적 선택:");
 
-		// Combo 미리보기용 텍스트
 		const char* preview = _selectedEnemyIndex >= 0 && _selectedEnemyIndex < (int)_enemyKeys.size()
 			? _enemyKeys[_selectedEnemyIndex].c_str()
 			: "적을 선택하세요";
@@ -1805,6 +1806,12 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 
 		ImGui::Separator();
 
+		if (inputRouteIndex >= 0 && inputRouteIndex < routeCount)
+		{
+			RenderRoutePreview(level, inputRouteIndex);
+			ImGui::Separator();
+		}
+
 		if (_selectedEnemyIndex >= 0 && routeCount > 0)
 		{
 			if (ImGui::Button("적 추가", ImVec2(150, 0)))
@@ -1854,6 +1861,47 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 			ImGui::EndDisabled();
 		}
 	}
+}
+
+void LevelEditor::RenderRoutePreview(LevelData& level, int routeIndex)
+{
+	if (!level.fullData.contains("routes"))
+	{
+		return;
+	}
+		
+	int routeCount = (int)level.fullData["routes"].size();
+	if (routeIndex < 0 || routeIndex >= routeCount)
+	{
+		return;
+	}
+
+	auto& route = level.fullData["routes"][routeIndex];
+
+	ImGui::Text("경로 %d 미리보기:", routeIndex);
+
+	// 경로 기본 정보
+	int motionMode = route.value("motionMode", 0);
+	const char* motionStr = (motionMode == 2) ? "비행" : "지상";
+
+	int startRow = route["startPosition"].value("row", 0);
+	int startCol = route["startPosition"].value("col", 0);
+	int endRow = route["endPosition"].value("row", 0);
+	int endCol = route["endPosition"].value("col", 0);
+	int checkpointCount = (int)route["checkpoints"].size();
+
+	ImGui::TextColored(COLOR_YELLOW, "이동: %s | 시작: (%d,%d) | 종료: (%d,%d) | CP: %d개",
+		motionStr, startCol, startRow, endCol, endRow, checkpointCount);
+
+	ImGui::Separator();
+
+	ImGui::BeginChild("RoutePreviewChild", ImVec2(0, 220), ImGuiChildFlags_Border);
+
+	ImGui::PushID(routeIndex);
+	RenderRouteOnGrid(level, route);
+	ImGui::PopID();
+
+	ImGui::EndChild();
 }
 
 std::vector<std::string> LevelEditor::GetLevelFiles() const

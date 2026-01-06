@@ -8,7 +8,7 @@ using json = nlohmann::ordered_json;
 class LevelEditor
 {
 public:
-	LevelEditor(std::string jsonPath);
+	LevelEditor(std::string jsonPath, std::string solutionPath);
 	~LevelEditor();
 
 	void RenderGUI(bool* p_open);
@@ -115,6 +115,13 @@ private:
 
     // 웨이브 편집 상태
     int _selectedWaveIndex = -1;
+    int _selectedFragmentIndex = -1;
+    int _selectedActionIndex = -1;
+    bool _showWaveDeleteConfirm = false;
+    bool _showFragmentDeleteConfirm = false;
+    char _inputEnemyKey[128] = "";  // 적 키 입력용
+    std::vector<std::string> _enemyKeys;  // enemy_table의 적 목록
+    int _selectedEnemyIndex = 0;  // Combo 선택 인덱스
 
 	// gui render
 	void RenderToolbar();
@@ -126,14 +133,22 @@ private:
     void RenderGridEditor(LevelData& level);
     void RenderTileInspector(LevelData& level);
     void RenderOptionsPanel(LevelData& level);
+
     void RenderRouteEditor(LevelData& level);
     void RenderRouteOnGrid(LevelData& level, json& route);
+
     void RenderWaveEditor(LevelData& level);
+    void RenderWaveList(LevelData& level, int waveCount);
+    void RenderWaveSetting(LevelData& level, json& wave);
+    void RenderFragmentList(json& wave);  
+    void RenderFragmentEditor(LevelData& level, json& fragment);  
+    void RenderEnemySelector(LevelData& level, json& fragment);  
 
     // 레벨 파일 관리
     std::vector<std::string> GetLevelFiles() const;
     std::string FormatLevelFileName(const std::string& levelId) const;
     std::string ExtractLevelId(const std::string& fileName) const;
+    void LoadEnemyTable(std::string solutionPath);
 
     // 레벨 데이터 처리
     LevelData LoadLevelFromFile(const std::string& fileName);

@@ -10,10 +10,11 @@
 
 namespace fs = std::filesystem;
 
-LevelEditor::LevelEditor(std::string jsonPath)
+LevelEditor::LevelEditor(std::string jsonPath, std::string solutionPath)
 	: _jsonPath(jsonPath)
 {
 	LoadLevels();
+	LoadEnemyTable(solutionPath);
 }
 
 LevelEditor::~LevelEditor()
@@ -994,41 +995,6 @@ void LevelEditor::RenderRouteEditor(LevelData& level)
 
 		ImGui::Separator();
 
-		if (checkpointCount > 0)
-		{
-			ImGui::BeginChild("CheckpointList", ImVec2(0, 200), true);
-
-			for (int i = 0; i < checkpointCount; ++i)
-			{
-				ImGui::PushID(i);
-
-				auto& cp = route["checkpoints"][i];
-				int cpRow = cp["position"].value("row", 0);
-				int cpCol = cp["position"].value("col", 0);
-
-				ImGui::Text("%d. (%d, %d)", i, cpCol, cpRow);
-
-				ImGui::SameLine(150);
-				if (ImGui::SmallButton("삭제"))
-				{
-					route["checkpoints"].erase(route["checkpoints"].begin() + i);
-					level.isModified = true;
-					_hasUnsavedChanges = true;
-					std::cout << "[Route] Removed checkpoint " << i << "\n";
-					ImGui::PopID();
-					break;
-				}
-
-				ImGui::PopID();
-			}
-
-			ImGui::EndChild();
-		}
-		else
-		{
-			ImGui::TextColored(COLOR_GRAY, "체크포인트가 없습니다.");
-		}
-
 		// 그리드 시각화
 		ImGui::Separator();
 		ImGui::Text("경로 미리보기");
@@ -1386,68 +1352,39 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 	// 좌 30%
 	ImVec2 availRegion = ImGui::GetContentRegionAvail();
 	ImGui::BeginChild("WaveList", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
+	RenderWaveList(level, waveCount);
+	ImGui::EndChild();
 
-	ImGui::Text("웨이브 목록");
-	ImGui::Separator();
-
-	if (waveCount == 0)
+	ImGui::BeginChild("WaveEditArea", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
+	if (_selectedWaveIndex >= 0 && _selectedWaveIndex < waveCount)
 	{
-		ImGui::TextColored(COLOR_GRAY, "웨이브가 없습니다.");
+		auto& wave = level.fullData["waves"][_selectedWaveIndex];
+
+		// wave 설정
+		RenderWaveSetting(level, wave);
+
+		ImGui::Separator();
+
+		RenderFragmentList(wave);
+
+		ImGui::Separator();
+
+		// fragment 편집
+		int fragmentCount = (int)wave["fragments"].size();
+		if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
+		{
+			auto& fragment = wave["fragments"][_selectedFragmentIndex];
+			RenderFragmentEditor(level, fragment);
+
+			ImGui::Separator();
+
+			RenderEnemySelector(level, fragment);
+		}
 	}
 	else
 	{
-		for (int i = 0; i < waveCount; ++i)
-		{
-			ImGui::PushID(i);
-
-			char waveName[32];
-			snprintf(waveName, sizeof(waveName), "Wave %d", i);
-
-			if (ImGui::Selectable(waveName, false))
-			{
-				// TODO: 웨이브 선택 처리
-			}
-
-			ImGui::PopID();
-		}
+		ImGui::TextColored(COLOR_GRAY, "웨이브를 선택하세요.");
 	}
-
-	ImGui::Separator();
-
-	if (ImGui::Button("웨이브 추가", ImVec2(-1, 0)))
-	{
-		// TODO: 웨이브 추가 구현
-		ImGui::OpenPopup("웨이브 추가 안내");
-	}
-
-	if (ImGui::BeginPopupModal("웨이브 추가 안내", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-	{
-		ImGui::Text("웨이브 추가 기능은 구현 예정입니다.");
-		ImGui::Separator();
-
-		if (ImGui::Button("확인", ImVec2(120, 0)))
-		{
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::EndPopup();
-	}
-
-	// 우 70%
-	ImGui::BeginChild("WaveEditArea", ImVec2(0, availRegion.y - 60), true);
-
-	ImGui::TextColored(COLOR_YELLOW, "웨이브 편집 영역");
-	ImGui::Separator();
-
-	ImGui::TextWrapped("여기에 구현할 기능:");
-	ImGui::BulletText("웨이브 추가/삭제");
-	ImGui::BulletText("Fragment 관리");
-	ImGui::BulletText("적 배치 (enemyDbRefs에서 선택)");
-	ImGui::BulletText("스폰 타이밍 설정");
-	ImGui::BulletText("경로 선택");
-
-	ImGui::Spacing();
-	ImGui::TextColored(COLOR_GRAY, "웨이브를 선택하면 여기에 편집 UI가 표시됩니다.");
 
 	ImGui::EndChild();
 
@@ -1457,17 +1394,19 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 	{
 		ImGui::TextColored(COLOR_YELLOW, "웨이브 편집을 완료하면 레벨 제작이 완료됩니다.");
 
-		// 최소 1개 이상의 웨이브가 있어야 완료 가능
 		if (waveCount > 0)
 		{
 			if (ImGui::Button("웨이브 편집 완료", ImVec2(200, 0)))
 			{
+				_selectedWaveIndex = -1;
+				_selectedFragmentIndex = -1;
+				_selectedActionIndex = -1;
+
 				level.waveCompleted = true;
 				level.isModified = true;
 				_hasUnsavedChanges = true;
 
 				std::cout << "[Level] Wave completed for " << level.levelId << "\n";
-				std::cout << "[Level] All editing completed!\n";
 			}
 		}
 		else
@@ -1490,6 +1429,429 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 			level.waveCompleted = false;
 			level.isModified = true;
 			_hasUnsavedChanges = true;
+		}
+	}
+
+	// 삭제 확인 팝업
+	if (_showWaveDeleteConfirm)
+	{
+		ImGui::OpenPopup("웨이브 삭제 확인");
+		_showWaveDeleteConfirm = false;
+	}
+
+	if (ImGui::BeginPopupModal("웨이브 삭제 확인", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextColored(COLOR_RED, "이 웨이브를 정말 삭제할까요?");
+		ImGui::Separator();
+		ImGui::Text("대상: Wave %d", _selectedWaveIndex);
+		ImGui::Separator();
+
+		if (ImGui::Button("예", ImVec2(120, 0)))
+		{
+			level.fullData["waves"].erase(level.fullData["waves"].begin() + _selectedWaveIndex);
+			_selectedWaveIndex = -1;
+			_selectedFragmentIndex = -1;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("아니요", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	if (_showFragmentDeleteConfirm)
+	{
+		ImGui::OpenPopup("Fragment 삭제 확인");
+		_showFragmentDeleteConfirm = false;
+	}
+
+	if (ImGui::BeginPopupModal("Fragment 삭제 확인", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextColored(COLOR_RED, "이 Fragment를 정말 삭제할까요?");
+		ImGui::Separator();
+		ImGui::Text("대상: Fragment %d", _selectedFragmentIndex);
+		ImGui::Separator();
+
+		if (ImGui::Button("예", ImVec2(120, 0)))
+		{
+			auto& wave = level.fullData["waves"][_selectedWaveIndex];
+			wave["fragments"].erase(wave["fragments"].begin() + _selectedFragmentIndex);
+			_selectedFragmentIndex = -1;
+			level.isModified = true;
+			_hasUnsavedChanges = true;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("아니요", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
+void LevelEditor::RenderWaveList(LevelData& level, int waveCount)
+{
+	ImGui::Text("웨이브 목록");
+	ImGui::Separator();
+
+	if (waveCount == 0)
+	{
+		ImGui::TextColored(COLOR_GRAY, "웨이브가 없습니다.");
+	}
+	else
+	{
+		for (int i = 0; i < waveCount; ++i)
+		{
+			ImGui::PushID(i);
+
+			char waveName[32];
+			snprintf(waveName, sizeof(waveName), "Wave %d", i);
+
+			bool isSelected = (_selectedWaveIndex == i);
+			if (isSelected)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.6f, 0.3f, 1.0f));
+			}
+			
+			if (ImGui::Selectable(waveName, isSelected))
+			{
+				_selectedWaveIndex = i;
+				_selectedFragmentIndex = -1;
+				_selectedActionIndex = -1;
+			}
+
+			if (isSelected)
+			{
+				ImGui::PopStyleColor();
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::Separator();
+
+	if (ImGui::Button("웨이브 추가", ImVec2(-1, 0)))
+	{
+		json newWave = {
+			{"preDelay", 0.0},
+			{"postDelay", 0.0},
+			{"maxTimeWaitingForNextWave", -1.0},
+			{"fragments", json::array()},
+			{"advancedWaveTag", nullptr}
+		};
+
+		level.fullData["waves"].push_back(newWave);
+		_selectedWaveIndex = waveCount;
+		_selectedFragmentIndex = -1;
+		_selectedActionIndex = -1;
+
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+	}
+
+	if (_selectedWaveIndex >= 0 && _selectedWaveIndex < waveCount)
+	{
+		if (ImGui::Button("웨이브 삭제", ImVec2(-1, 0)))
+		{
+			_showWaveDeleteConfirm = true;
+		}
+	}
+}
+
+void LevelEditor::RenderWaveSetting(LevelData& level, json& wave)
+{
+	ImGui::Text("웨이브 설정");
+	ImGui::Separator();
+
+	float preDelay = wave.value("preDelay", 0.0f);
+	float postDelay = wave.value("postDelay", 0.0f);
+
+	ImGui::PushItemWidth(150);
+	if (ImGui::InputFloat("시작 지연 시간", &preDelay, 0.1f, 1.0f, "%.1f"))
+	{
+		wave["preDelay"] = preDelay;
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+	}
+
+	if (ImGui::InputFloat("종료 지연 시간", &postDelay, 0.1f, 1.0f, "%.1f"))
+	{
+		wave["postDelay"] = postDelay;
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+	}
+	ImGui::PopItemWidth();
+}
+
+void LevelEditor::RenderFragmentList(json& wave)
+{
+	int fragmentCount = (int)wave["fragments"].size();
+	ImGui::Text("Fragment 개수: %d", fragmentCount);
+
+	if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
+	{
+		ImGui::SameLine();
+		ImGui::TextColored(COLOR_YELLOW, " | 선택됨: Fragment %d", _selectedFragmentIndex);
+	}
+
+	ImGui::Separator();
+
+	ImGui::BeginChild("FragmentList", ImVec2(0, 150), true);
+
+	if (fragmentCount == 0)
+	{
+		ImGui::TextColored(COLOR_GRAY, "Fragment가 없습니다.");
+	}
+	else
+	{
+		for (int i = 0; i < fragmentCount; ++i)
+		{
+			ImGui::PushID(i);
+
+			auto& frag = wave["fragments"][i];
+			int actionCount = (int)frag["actions"].size();
+
+			char fragName[64];
+			snprintf(fragName, sizeof(fragName), "Fragment %d (적: %d)", i, actionCount);
+
+			bool isSelected = (_selectedFragmentIndex == i);
+			if (isSelected)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.5f, 0.6f, 1.0f));
+			}
+
+			if (ImGui::Selectable(fragName, isSelected))
+			{
+				_selectedFragmentIndex = i;
+				_selectedActionIndex = -1;
+			}
+
+			if (isSelected)
+			{
+				ImGui::PopStyleColor();
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::EndChild();
+
+	if (ImGui::Button("Fragment 추가", ImVec2(150, 0)))
+	{
+		json newFragment = {
+			{"preDelay", 0.0},
+			{"actions", json::array()}
+		};
+
+		wave["fragments"].push_back(newFragment);
+		_selectedFragmentIndex = fragmentCount;
+		_selectedActionIndex = -1;
+	}
+
+	ImGui::SameLine();
+
+	if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
+	{
+		if (ImGui::Button("Fragment 삭제", ImVec2(150, 0)))
+		{
+			_showFragmentDeleteConfirm = true;
+		}
+	}
+}
+
+void LevelEditor::RenderFragmentEditor(LevelData& level, json& fragment)
+{
+	ImGui::Text("Fragment %d 편집", _selectedFragmentIndex);
+	ImGui::Separator();
+
+	// Fragment 설정
+	float fragPreDelay = fragment.value("preDelay", 0.0f);
+	ImGui::PushItemWidth(150);
+	if (ImGui::InputFloat("Fragment 시작 지연", &fragPreDelay, 0.1f, 1.0f, "%.1f"))
+	{
+		fragment["preDelay"] = fragPreDelay;
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+	}
+	ImGui::PopItemWidth();
+
+	ImGui::Separator();
+
+	// Action 목록
+	int actionCount = (int)fragment["actions"].size();
+	ImGui::Text("적 스폰 목록: %d", actionCount);
+	ImGui::Separator();
+
+	ImGui::BeginChild("ActionList", ImVec2(0, 200), true);
+
+	if (actionCount == 0)
+	{
+		ImGui::TextColored(COLOR_GRAY, "적이 없습니다.");
+	}
+	else
+	{
+		for (int i = 0; i < actionCount; ++i)
+		{
+			ImGui::PushID(i);
+
+			auto& action = fragment["actions"][i];
+			std::string key = action.value("key", "unknown");
+			int count = action.value("count", 1);
+			int routeIndex = action.value("routeIndex", 0);
+
+			char actionText[128];
+			snprintf(actionText, sizeof(actionText), "%d. %s x%d (경로:%d)",
+				i, key.c_str(), count, routeIndex);
+
+			ImGui::BulletText("%s", actionText);
+
+			ImGui::SameLine(400);
+			if (ImGui::SmallButton("삭제"))
+			{
+				fragment["actions"].erase(fragment["actions"].begin() + i);
+				level.isModified = true;
+				_hasUnsavedChanges = true;
+				ImGui::PopID();
+				break;
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::EndChild();
+}
+
+void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
+{
+	ImGui::Text("새 적 추가");
+	ImGui::Separator();
+
+	// Combo로 적 선택
+	if (_enemyKeys.empty())
+	{
+		ImGui::TextColored(COLOR_RED, "enemy_table.json을 로드할 수 없습니다!");
+		ImGui::Text("경로: gamedata/tables/enemy_table.json");
+	}
+	else
+	{
+		ImGui::Text("적 선택:");
+
+		// Combo 미리보기용 텍스트
+		const char* preview = _selectedEnemyIndex >= 0 && _selectedEnemyIndex < (int)_enemyKeys.size()
+			? _enemyKeys[_selectedEnemyIndex].c_str()
+			: "적을 선택하세요";
+
+		if (ImGui::BeginCombo("##EnemyCombo", preview))
+		{
+			for (int i = 0; i < (int)_enemyKeys.size(); ++i)
+			{
+				bool isSelected = (_selectedEnemyIndex == i);
+				if (ImGui::Selectable(_enemyKeys[i].c_str(), isSelected))
+				{
+					_selectedEnemyIndex = i;
+				}
+
+				if (isSelected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		static int inputCount = 1;
+		static int inputRouteIndex = 0;
+		static float inputPreDelay = 0.0f;
+		static float inputInterval = 0.5f;
+
+		ImGui::PushItemWidth(150);
+		ImGui::InputInt("개수", &inputCount);
+		inputCount = std::max(1, inputCount);
+
+		// 경로 선택
+		int routeCount = level.fullData.contains("routes") ?
+			(int)level.fullData["routes"].size() : 0;
+
+		if (routeCount > 0)
+		{
+			ImGui::InputInt("경로 번호", &inputRouteIndex);
+			inputRouteIndex = std::max(0, std::min(routeCount - 1, inputRouteIndex));
+		}
+		else
+		{
+			ImGui::BeginDisabled();
+			ImGui::InputInt("경로 번호", &inputRouteIndex);
+			ImGui::EndDisabled();
+			ImGui::TextColored(COLOR_RED, "경로가 없습니다!");
+		}
+
+		ImGui::InputFloat("시작 지연", &inputPreDelay, 0.1f, 1.0f, "%.1f");
+		ImGui::InputFloat("스폰 간격", &inputInterval, 0.1f, 1.0f, "%.1f");
+		ImGui::PopItemWidth();
+
+		ImGui::Separator();
+
+		if (_selectedEnemyIndex >= 0 && routeCount > 0)
+		{
+			if (ImGui::Button("적 추가", ImVec2(150, 0)))
+			{
+				json newAction = {
+					{"actionType", 0},
+					{"managedByScheduler", true},
+					{"key", _enemyKeys[_selectedEnemyIndex]},
+					{"count", inputCount},
+					{"preDelay", inputPreDelay},
+					{"interval", inputInterval},
+					{"routeIndex", inputRouteIndex},
+					{"blockFragment", false},
+					{"autoPreviewRoute", false},
+					{"autoDisplayEnemyInfo", false},
+					{"isUnharmfulAndAlwaysCountAsKilled", false},
+					{"hiddenGroup", nullptr},
+					{"randomSpawnGroupKey", nullptr},
+					{"randomSpawnGroupPackKey", nullptr},
+					{"randomType", 0},
+					{"refreshType", 0},
+					{"weight", 0},
+					{"dontBlockWave", false},
+					{"forceBlockWaveInBranch", false},
+					{"isValid", false},
+					{"notCountInTotal", false},
+					{"extraMeta", nullptr},
+					{"actionId", nullptr}
+				};
+
+				fragment["actions"].push_back(newAction);
+				level.isModified = true;
+				_hasUnsavedChanges = true;
+
+				// 입력 초기화
+				inputCount = 1;
+				inputPreDelay = 0.0f;
+				inputInterval = 0.5f;
+
+				std::cout << "[Wave] Added enemy: " << _enemyKeys[_selectedEnemyIndex] << "\n";
+			}
+		}
+		else
+		{
+			ImGui::BeginDisabled();
+			ImGui::Button("적 추가", ImVec2(150, 0));
+			ImGui::EndDisabled();
 		}
 	}
 }
@@ -1535,6 +1897,46 @@ std::string LevelEditor::ExtractLevelId(const std::string& fileName) const
 		return fileName.substr(11, fileName.length() - 16);
 	}
 	return fileName;
+}
+
+void LevelEditor::LoadEnemyTable(std::string solutionPath)
+{
+	_enemyKeys.clear();
+
+	std::string enemyTablePath = solutionPath + "/gamedata/tables/enemies_table.json";
+
+	std::ifstream file(enemyTablePath);
+	if (!file.is_open())
+	{
+		std::cout << "[Level] enemies_table.json not found at: " << enemyTablePath << "\n";
+		return;
+	}
+
+	try
+	{
+		json enemyTable;
+		file >> enemyTable;
+
+		if (enemyTable.contains("enemies") && enemyTable["enemies"].is_array())
+		{
+			for (auto& enemy : enemyTable["enemies"])
+			{
+				if (enemy.contains("key"))
+				{
+					std::string key = enemy["key"].get<std::string>();
+					_enemyKeys.push_back(key);
+				}
+			}
+		}
+
+		std::sort(_enemyKeys.begin(), _enemyKeys.end());
+
+		std::cout << "[level] Loaded " << _enemyKeys.size() << " enemies from enemy_table.json\n";
+	}
+	catch (json::exception& e)
+	{
+		std::cout << "[level] Failed to parse enemies_table.json: " << e.what() << "\n";
+	}
 }
 
 LevelEditor::LevelData LevelEditor::LoadLevelFromFile(const std::string& fileName)

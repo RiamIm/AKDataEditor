@@ -69,7 +69,7 @@ void ChangeSolutionPath(const std::string& newPath, EnemyEditor*& enemyEditor, O
 
     enemyEditor = new EnemyEditor(enemyPath);
     operatorEditor = new OperatorEditor(operatorPath);
-    levelEditor = new LevelEditor(levelPath);
+    levelEditor = new LevelEditor(levelPath, std::string(solutionPath));
 
     std::cout << "Path set to: " << solutionPath << "\n";
 }
@@ -285,7 +285,7 @@ int main(int, char**)
 
     EnemyEditor* enemyEditor = new EnemyEditor(enemyPath);
     OperatorEditor* operatorEditor = new OperatorEditor(operatorPath);
-    LevelEditor* levelEditor = new LevelEditor(levelPath);
+    LevelEditor* levelEditor = new LevelEditor(levelPath, std::string(solutionPath));
 
     bool showEnemyEditor = false;
     bool showOperatorEditor = false;

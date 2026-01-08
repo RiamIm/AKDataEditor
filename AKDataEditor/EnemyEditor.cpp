@@ -148,13 +148,13 @@ void EnemyEditor::LoadEnemies()
 
 void EnemyEditor::SaveEnemies()
 {
-	std::filesystem::path filePath(_jsonPath);
-	std::filesystem::create_directories(filePath.parent_path());
+	fs::path filePath(_jsonPath);
+	fs::create_directories(filePath.parent_path());
 
 	// version이 없으면 추가
 	if (!_enemyData.contains("version"))
 	{
-		_enemyData["version"] = 1;
+		_enemyData["version"] = VERSION;
 	}
 
 	// 순서 보장: 새 JSON 생성

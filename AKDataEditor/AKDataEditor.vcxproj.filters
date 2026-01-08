@@ -18,6 +18,12 @@
     <Filter Include="json">
       <UniqueIdentifier>{a5fd043d-439b-4025-ba49-f01f4c74261f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Helper">
+      <UniqueIdentifier>{a5c7782b-40b3-4b3d-a920-2c39fac22e9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{18d081dc-4158-4bb0-b758-65ddba3da8fe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ThirdParty\imgui\imgui.cpp">
@@ -55,6 +61,9 @@
     </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkillEditor.cpp">
+      <Filter>Editor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -99,6 +108,15 @@
     </ClInclude>
     <ClInclude Include="Utility.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkillEditor.h">
+      <Filter>Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Skill.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGuiRAII.h">
+      <Filter>Helper</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

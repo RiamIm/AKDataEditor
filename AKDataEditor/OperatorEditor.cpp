@@ -150,12 +150,12 @@ void OperatorEditor::LoadOperators()
 
 void OperatorEditor::SaveOperators()
 {
-    std::filesystem::path filePath(_jsonPath);
-    std::filesystem::create_directories(filePath.parent_path());
+    fs::path filePath(_jsonPath);
+    fs::create_directories(filePath.parent_path());
 
     if (!_operatorData.contains("version"))
     {
-        _operatorData["version"] = 1;
+        _operatorData["version"] = VERSION;
     }
 
     // 순서 보장
@@ -266,7 +266,7 @@ void OperatorEditor::RenderOperatorList()
         ImGui::TableSetupColumn("Rarity", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("HP/ATK", ImGuiTableColumnFlags_WidthFixed, 100.0f);
         ImGui::TableSetupColumn("Cost", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 120.0f);
         ImGui::TableHeadersRow();
 
         int index = 0;

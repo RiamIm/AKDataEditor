@@ -28,7 +28,7 @@ void SkillEditor::LoadSkills()
             json j;
             file >> j;
 
-            _dataVersion = j.value("dataVersion", 0);
+            _dataVersion = j.value("version", 0);
 
             if (j.contains("skills")) 
             {
@@ -409,7 +409,7 @@ void SkillEditor::RenderEditWindow()
             skill.name = _inputSkillName;          
             skill.description = _inputSkillDesc;
             skill.skillType = _inputSkillType;
-            skill.duration = _inputDuration;
+            skill.duration = Snap1(static_cast<double>(_inputDuration));
             skill.spData.spType = _inputSpType;
             skill.spData.spCost = _inputSpCost;
             skill.spData.initSp = _inputInitSp;
@@ -485,19 +485,6 @@ void SkillEditor::RenderRangeGridEditor()
                 }
 
                 draw_list->AddRect(p_min, p_max, IM_COL32(100, 100, 100, 255));
-
-                if (ImGui::IsMouseClicked(0))
-                {
-                    ImVec2 mouse = ImGui::GetMousePos();
-                    if (mouse.x >= p_min.x && mouse.x <= p_max.x &&
-                        mouse.y >= p_min.y && mouse.y <= p_max.y)
-                    {
-                        if (!(row == CENTER && col == CENTER))
-                        {
-                            _skillRangeGrid[row][col] = !_skillRangeGrid[row][col];
-                        }
-                    }
-                }
             }
         }
 
@@ -582,7 +569,7 @@ void SkillEditor::RenderEffectListPanel()
                 if (ImGui::SmallButton("수정"))
                 {
                     strcpy_s(_inputEffectKey, effect.key.c_str());
-                    _inputEffectValue = effect.value;
+                    _inputEffectValue = static_cast<float>(effect.value);
                     _editingEffectIndex = index;
                     _showEffectAddPopup = true;
                 }
@@ -624,7 +611,7 @@ void SkillEditor::RenderEffectAddPopup()
         ImGui::Separator();
 
         ImGui::InputText("Key", _inputEffectKey, 64);
-        ImGui::InputFloat("Value", &_inputEffectValue);
+        ImGui::InputFloat("Value", &_inputEffectValue, 0.01f, 1.0f, "%.2f");
 
         ImGui::Separator();
 
@@ -634,7 +621,7 @@ void SkillEditor::RenderEffectAddPopup()
             {
                 BlackboardEntry entry;
                 entry.key = _inputEffectKey;
-                entry.value = _inputEffectValue;
+                entry.value = Snap2(static_cast<double>(_inputEffectValue));
 
                 if (_editingEffectIndex >= 0)
                 {
@@ -703,7 +690,7 @@ Skill SkillEditor::CreateSkillFromBuffer()
     skill.name = _inputSkillName;
     skill.description = _inputSkillDesc;
     skill.skillType = _inputSkillType;
-    skill.duration = _inputDuration;
+    skill.duration = Snap1(static_cast<double>(_inputDuration));
 
     skill.spData.spType = _inputSpType;
     skill.spData.spCost = _inputSpCost;

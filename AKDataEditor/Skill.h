@@ -6,7 +6,7 @@
 struct BlackboardEntry
 {
 	std::string key;
-	float value;
+	double value;
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(BlackboardEntry, key, value)
 };
 
@@ -33,7 +33,7 @@ struct Skill
 	std::string name;
 	std::string description;
 	int skillType;			// 0. passive, 1. manual, 2. auto
-	float duration;
+	double duration;
 	SpData spData;
 	std::vector<SkillRange> range;
 	std::vector<BlackboardEntry> blackboard;

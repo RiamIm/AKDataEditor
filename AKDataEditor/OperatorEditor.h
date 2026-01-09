@@ -49,19 +49,11 @@ private:
     bool _showEditWindow = false;
     bool _showRangeEditor = false;
     int _selectedOperatorIndex = -1;
-    bool _showSkillEditor = false;
-    int _selectedSkillIndex = -1; // 편집중인 스킬 인덱스
-    bool _isEditingSkill = false; // true = 편집, false = 새로 만들기
 
     // Delete 확인
     bool _showDeleteConfirm = false;
     int _deleteTargetIndex = -1;
     std::string _deleteTargetName;
-
-    // skill delete 확인
-    bool _showSkillDeleteConfirm = false;
-    int _deleteSkillTargetIndex = -1;
-    std::string _deleteSkillTargetName;
 
     // 입력 버퍼
     char _inputCharId[64] = "";
@@ -78,20 +70,6 @@ private:
     float _inputBaseAttackTime = 1.5f;
     int _inputRespawnTime = 70;
 
-    // 스킬 입력 버퍼
-    char _inputSkillId[64] = "";
-    char _inputSkillName[64] = "";
-    char _inputSkillDesc[256] = "";
-    int _inputSkillType = 1; // 0: passive, 1: manual, 2: auto
-    int _inputSpType = 1;	// 1: attack, 2: time, 4: hit
-    int _inputSpCost = 30;
-    int _inputInitSp = 0;
-    float _inputDuration = 0.0f;
-    int _inputEffectType = 0; // 0: Atk, 1: def, 2: aspd, 3:cost, 4: heal
-    float _inputEffectValue = 0.0f;
-
-    std::vector<json> _tempSkills;
-
     // 격자판 범위 데이터
     static const int GRID_SIZE = 13;
     static const int CENTER = 6;
@@ -104,9 +82,6 @@ private:
     void RenderEditWindow();
     void RenderRangeGridEditor();
     void RenderSkillList();
-    void RenderSkillEditor();
-    void RenderTempSkillList();
-    void ClearSkillInputBuffers();
 
     // 헬퍼 함수
     json OperatorDataStructure(const std::string& charId, const std::string& name,
@@ -125,8 +100,4 @@ private:
     // 격자판 변환
     json GridToRangeJson();
     void RangeJsonToGrid(const json& rangeData);
-
-    // 스킬판 변환
-    json CreateSkillData();
-    void LoadSkillToBuffer(const json& skillData);
 };

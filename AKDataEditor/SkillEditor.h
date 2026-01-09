@@ -85,5 +85,6 @@ private:
 	std::string GenerateSkillId(const std::string& operatorId, const std::string& suffix);
 	std::string GetOperatorDisplayName(const std::string& operatorId);
 
+	void UpdateOperatorSkillIds();
 };
 

@@ -64,12 +64,15 @@ void SkillEditor::SaveSkills()
     {
         file << output.dump(2);
         std::cout << "Saved to " << _jsonPath << '\n';
-        _hasUnsavedChanges = false;
     }
     else
     {
         std::cout << "Failed to save!\n";
     }
+
+    UpdateOperatorSkillIds();
+
+    _hasUnsavedChanges = false;
 }
 
 void SkillEditor::RenderGUI(bool* p_open)
@@ -800,4 +803,61 @@ std::string SkillEditor::GenerateSkillId(const std::string& operatorId, const st
 std::string SkillEditor::GetOperatorDisplayName(const std::string& operatorId)
 {
     return operatorId;
+}
+
+void SkillEditor::UpdateOperatorSkillIds()
+{
+    std::ifstream inFile(_operatorPath);
+    if (!inFile.is_open())
+    {
+        std::cout << "[Skill] operators_table.json not found for update.\n";
+        return;
+    }
+
+    try
+    {
+        json operatorData;
+        inFile >> operatorData;
+        inFile.close();
+
+        if (!operatorData.contains("operators"))
+        {
+            std::cout << "[Skill] No operators found\n";
+            return;
+        }
+
+        for (auto& op : operatorData["operators"])
+        {
+            if (!op.contains("charId"))
+                continue;
+
+            std::string charId = op["charId"];
+
+            std::vector<std::string> skillIds;
+            for (const auto& skill : _skills)
+            {
+                if (skill.operatorId == charId)
+                {
+                    skillIds.push_back(skill.skillId);
+                }
+            }
+
+            op["skillIds"] = skillIds;
+        }
+
+        std::ofstream outFile(_operatorPath);
+        if (outFile.is_open())
+        {
+            outFile << operatorData.dump(2);
+            std::cout << "[Skill] Updated operators_table.json skillIds\n";
+        }
+        else
+        {
+            std::cout << "[Skill] Failed to save operators_table.json\n";
+        }
+    }
+    catch (json::exception& e)
+    {
+        std::cout << "[Skill] Failed to update operators: " << e.what() << '\n';
+    }
 }

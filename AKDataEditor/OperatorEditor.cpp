@@ -35,9 +35,6 @@ void OperatorEditor::RenderGUI(bool* p_open)
 
     if (_showRangeEditor)
         RenderRangeGridEditor();
-
-    if (_showSkillEditor)
-        RenderSkillEditor();
 }
 
 void OperatorEditor::LoadOperators()
@@ -483,20 +480,7 @@ void OperatorEditor::RenderCreateWindow()
     ImGui::Spacing();
 
     ImGui::Separator();
-    ImGui::Text("스킬");
-    ImGui::Spacing();
-
-    if (ImGui::Button("스킬 추가"))
-    {
-        _showSkillEditor = true;
-        _isEditingSkill = false;
-        _selectedSkillIndex = -1;
-        ClearSkillInputBuffers();
-    }
-
-    ImGui::Spacing();
-
-    RenderTempSkillList();
+    ImGui::TextColored(COLOR_GRAY, "※ 스킬은 '스킬 에디터'에서 추가하세요.");
 
     ImGui::Separator();
     ImGui::Spacing();
@@ -521,17 +505,11 @@ void OperatorEditor::RenderCreateWindow()
                 GridToRangeJson()
             );
 
-            if (!_tempSkills.empty())
-            {
-                newOperator["skills"] = _tempSkills;
-            }
-
             _operatorData["operators"].push_back(newOperator);
             _hasUnsavedChanges = true;
 
             std::cout << "[Operator] Created: " << _inputName << "\n";
             _showCreateWindow = false;
-            _tempSkills.clear();
         }
     }
 
@@ -540,7 +518,6 @@ void OperatorEditor::RenderCreateWindow()
     if (ImGui::Button("취소", ImVec2(120, 0)))
     {
         _showCreateWindow = false;
-        _tempSkills.clear();
     }
 
     ImGui::End();
@@ -686,14 +663,6 @@ void OperatorEditor::RenderEditWindow()
 
     ImGui::Spacing();
 
-    if (ImGui::Button("새로운 스킬 추가", ImVec2(150, 0)))
-    {
-        ClearSkillInputBuffers();
-
-        _isEditingSkill = false;
-        _showSkillEditor = true;
-    }
-
     ImGui::Separator();
 
     if (ImGui::Button("완료"))
@@ -797,378 +766,21 @@ void OperatorEditor::RenderSkillList()
 {
     auto& op = _operatorData["operators"][_selectedOperatorIndex];
 
-    if (!op.contains("skills") || op["skills"].empty())
+    if (!op.contains("skillIds") || op["skillIds"].empty())
     {
-        ImGui::TextColored(COLOR_GRAY, "추가된 스킬이 없습니다.");
+        ImGui::TextColored(COLOR_GRAY, "스킬이 없습니다.");
         return;
     }
 
-    ImGuiTableFlags flags = ImGuiTableFlags_Borders |
-        ImGuiTableFlags_RowBg;
+    ImGui::Text("스킬 목록");
+    ImGui::Spacing();
 
-    if (ImGui::BeginTable("Skill Table", 5, flags, ImVec2(0, 150)))
+    for (const auto& skillId : op["skillIds"])
     {
-        ImGui::TableSetupColumn("Skill ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-        ImGui::TableSetupColumn("SP", ImGuiTableColumnFlags_WidthFixed, 60.0f);
-        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-        ImGui::TableHeadersRow();
-
-        int index = 0;
-        for (auto& skill : op["skills"])
-        {
-            ImGui::TableNextRow();
-
-            ImU32 bg = (index % 2 == 0)
-                ? IM_COL32(25, 25, 25, 255)
-                : IM_COL32(40, 40, 40, 255);
-
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, bg);
-
-            // skill id
-            ImGui::TableNextColumn();
-            std::string skillId = skill["skillId"];
-            ImGui::Text("%s", skillId.c_str());
-
-            // name
-            ImGui::TableNextColumn();
-            std::string name = skill["name"];
-            ImGui::Text("%s", name.c_str());
-
-            ImGui::TableNextColumn();
-            int skillType = skill["skillType"];
-            const char* typeStr = (skillType == 0) ? "패시브" :
-                (skillType == 1) ? "수동" : "자동";
-            ImGui::Text("%s", typeStr);
-
-            // sp
-            ImGui::TableNextColumn();
-            int spCost = skill["spData"]["spCost"];
-            ImGui::Text("%d", spCost);
-
-            // action
-            ImGui::TableNextColumn();
-
-            ImGui::PushID(index);
-
-            if (ImGui::SmallButton("편집"))
-            {
-                _selectedSkillIndex = index;
-                _isEditingSkill = true;
-
-                LoadSkillToBuffer(skill); // 입력 버퍼 로드
-
-                _showSkillEditor = true;
-            }
-
-            ImGui::SameLine();
-
-            if (ImGui::SmallButton("삭제"))
-            {
-                _deleteSkillTargetIndex = index;
-                _deleteSkillTargetName = name;
-                _showSkillDeleteConfirm = true;
-            }
-
-            ImGui::PopID();
-
-            ++index;
-        }
-
-        ImGui::EndTable();
-    }
-
-    if (_showSkillDeleteConfirm)
-    {
-        ImGui::OpenPopup("삭제 확인");
-        _showSkillDeleteConfirm = false;
-    }
-
-    if (ImGui::BeginPopupModal("삭제 확인", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("'%s을(를) 삭제할까요?", _deleteSkillTargetName.c_str());
-        ImGui::Text("이 작업은 되돌릴 수 없습니다.");
-        ImGui::Separator();
-
-        if (ImGui::Button("예", ImVec2(120, 0)))
-        {
-            if (_deleteSkillTargetIndex >= 0 && _deleteSkillTargetIndex < (int)op["skills"].size())
-            {
-                op["skills"].erase(op["skills"].begin() + _deleteSkillTargetIndex);
-                _hasUnsavedChanges = true;
-                std::cout << "[Operator] Deleted: " << _deleteSkillTargetName << '\n';
-            }
-            _deleteSkillTargetIndex = -1;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button("아니오", ImVec2(120, 0)))
-        {
-            _deleteSkillTargetIndex = -1;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::EndPopup();
+        ImGui::BulletText("%s", skillId.get<std::string>().c_str());
     }
 }
 
-void OperatorEditor::RenderSkillEditor()
-{
-    ImGui::SetNextWindowSize(ImVec2(500, 600), ImGuiCond_Appearing);
-
-    const char* title = _isEditingSkill ? "스킬 편집" : "새로운 스킬 추가";
-
-    if (ImGui::Begin(title, &_showSkillEditor))
-    {
-        ImGui::SeparatorText("기본 정보");
-
-        ImGui::InputText("스킬 ID", _inputSkillId, 64);
-        ImGui::InputText("이름", _inputSkillName, 64);
-        ImGui::Text("설명");
-        ImGui::InputTextMultiline("##Description", _inputSkillDesc, 256, ImVec2(-1, 60));
-
-        ImGui::Spacing();
-        ImGui::SeparatorText("스킬 타입");
-
-        const char* skillTypes[] = { "패시브", "수동", "자동" };
-        ImGui::Combo("발동 조건", &_inputSkillType, skillTypes, IM_ARRAYSIZE(skillTypes));
-
-        ImGui::Spacing();
-        ImGui::SeparatorText("SP 데이터");
-
-        const char* spTypes[] = { "공격 시", "초당 회복", "피격 시" };
-        int spTypeIndex = (_inputSpType == 1) ? 0 :
-            (_inputSpType == 2) ? 1 : 2;
-        if (ImGui::Combo("SP 회복", &spTypeIndex, spTypes, IM_ARRAYSIZE(spTypes)))
-        {
-            _inputSpType = (spTypeIndex == 0) ? 1 :
-                (spTypeIndex == 1) ? 2 : 4;
-        }
-
-        ImGui::InputInt("SP 비용", &_inputSpCost);
-        ImGui::InputInt("초기 SP", &_inputInitSp);
-        ImGui::InputFloat("지속시간 (초)", &_inputDuration, 1.0f, 5.0f, "%.1f");
-
-        ImGui::Spacing();
-        ImGui::SeparatorText("효과");
-
-        const char* effectTypes[] = { "공격", "방어", "공격 속도", "DP회복", "힐" };
-        ImGui::Combo("효과 타입", &_inputEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
-
-        if (_inputEffectType == 0 || _inputEffectType == 1) // atk, def
-        {
-            ImGui::InputFloat("배율", &_inputEffectValue, 0.1f, 0.5f, "%.2f");
-            ImGui::Text("(e.g., 0.4 = +40%)");
-        }
-        else if (_inputEffectType == 3) // cost
-        {
-            if (_inputDuration > 0)
-            {
-                ImGui::InputFloat("초당 DP", &_inputEffectValue, 0.1f, 0.5f, "%.1f");
-            }
-            else
-            {
-                ImGui::InputFloat("값", &_inputEffectValue, 1.0f, 10.0f, "%.0f");
-            }
-        }
-        else
-        {
-            ImGui::InputFloat("값", &_inputEffectValue, 1.0f, 10.0f, "%.0f");
-        }
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        if (ImGui::Button("저장", ImVec2(120, 0)))
-        {
-            json skillData = CreateSkillData();
-
-            if (_showCreateWindow)
-            {
-                if (_isEditingSkill && _selectedSkillIndex >= 0)
-                {
-                    _tempSkills[_selectedSkillIndex] = skillData;
-                }
-                else
-                {
-                    _tempSkills.push_back(skillData);
-                }
-            }
-            else if (_showEditWindow)
-            {
-                auto& op = _operatorData["operators"][_selectedOperatorIndex];
-
-                if (!op.contains("skills"))
-                {
-                    op["skills"] = json::array();
-                }
-
-                if (_isEditingSkill && _selectedSkillIndex >= 0)
-                {
-                    op["skills"][_selectedSkillIndex] = skillData;
-                }
-                else
-                {
-                    op["skills"].push_back(skillData);
-                }
-
-                _hasUnsavedChanges = true;
-            }
-
-            _showSkillEditor = false;
-            ClearSkillInputBuffers();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button("완료", ImVec2(120, 0)))
-        {
-            _showSkillEditor = false;
-        }
-    }
-
-    ImGui::End();
-}
-
-void OperatorEditor::RenderTempSkillList()
-{
-    if (_tempSkills.empty())
-    {
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "추가된 스킬이 없습니다.");
-        return;
-    }
-
-    ImGui::Text("추가된 스킬: %d", (int)_tempSkills.size());
-
-    ImGuiTableFlags flags = ImGuiTableFlags_Borders |
-        ImGuiTableFlags_RowBg |
-        ImGuiTableFlags_ScrollY;
-
-    if (ImGui::BeginTable("Temp Skill Table", 5, flags, ImVec2(0, 150)))
-    {
-        ImGui::TableSetupColumn("Skill ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-        ImGui::TableSetupColumn("SP", ImGuiTableColumnFlags_WidthFixed, 60.0f);
-        ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-        ImGui::TableHeadersRow();
-
-        int index = 0;
-        for (auto& skill : _tempSkills)
-        {
-            ImGui::TableNextRow();
-
-            ImU32 bg = (index % 2 == 0)
-                ? IM_COL32(25, 25, 25, 255)
-                : IM_COL32(40, 40, 40, 255);
-
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, bg);
-
-            // skill id
-            ImGui::TableNextColumn();
-            std::string skillId = skill["skillId"];
-            ImGui::Text("%s", skillId.c_str());
-
-            // name
-            ImGui::TableNextColumn();
-            std::string name = skill["name"];
-            ImGui::Text("%s", name.c_str());
-
-            ImGui::TableNextColumn();
-            int skillType = skill["skillType"];
-            const char* typeStr = (skillType == 0) ? "Passive" :
-                (skillType == 1) ? "Manual" : "Auto";
-            ImGui::Text("%s", typeStr);
-
-            // sp
-            ImGui::TableNextColumn();
-            int spCost = skill["spData"]["spCost"];
-            ImGui::Text("%d", spCost);
-
-            // action
-            ImGui::TableNextColumn();
-
-            ImGui::PushID(index);
-
-            if (ImGui::SmallButton("편집"))
-            {
-                _selectedSkillIndex = index;
-                _isEditingSkill = true;
-
-                LoadSkillToBuffer(skill); // 입력 버퍼 로드
-
-                _showSkillEditor = true;
-            }
-
-            ImGui::SameLine();
-
-            if (ImGui::SmallButton("삭제"))
-            {
-                _deleteSkillTargetIndex = index;
-                _deleteSkillTargetName = name;
-                _showSkillDeleteConfirm = true;
-            }
-
-            ImGui::PopID();
-
-            ++index;
-        }
-
-        ImGui::EndTable();
-    }
-
-    if (_showSkillDeleteConfirm)
-    {
-        ImGui::OpenPopup("삭제 확인");
-        _showSkillDeleteConfirm = false;
-    }
-
-    if (ImGui::BeginPopupModal("삭제 확인", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("'%s'을(를) 삭제할까요?", _deleteSkillTargetName.c_str());
-        ImGui::Text("이 작업은 되돌릴 수 없습니다.");
-        ImGui::Separator();
-
-        if (ImGui::Button("예", ImVec2(120, 0)))
-        {
-            if (_deleteSkillTargetIndex >= 0 && _deleteSkillTargetIndex < (int)_tempSkills.size())
-            {
-                _tempSkills.erase(_tempSkills.begin() + _deleteSkillTargetIndex);
-                std::cout << "[Operator] Deleted skill: " << _deleteSkillTargetName << '\n';
-            }
-            _deleteSkillTargetIndex = -1;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button("아니오", ImVec2(120, 0)))
-        {
-            _deleteSkillTargetIndex = -1;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::EndPopup();
-    }
-}
-
-void OperatorEditor::ClearSkillInputBuffers()
-{
-    memset(_inputSkillId, 0, sizeof(_inputSkillId));
-    memset(_inputSkillName, 0, sizeof(_inputSkillName));
-    memset(_inputSkillDesc, 0, sizeof(_inputSkillDesc));
-    _inputSkillType = 1;
-    _inputSpType = 1;
-    _inputSpCost = 30;
-    _inputInitSp = 0;
-    _inputDuration = 0.0f;
-    _inputEffectType = 0;
-    _inputEffectValue = 0.0f;
-}
 
 json OperatorEditor::OperatorDataStructure(const std::string& charId, const std::string& name,
     const std::string& profession, int rarity, const std::string& position,
@@ -1310,52 +922,5 @@ void OperatorEditor::RangeJsonToGrid(const json& rangeData)
         {
             _rangeGrid[absRow][absCol] = true;
         }
-    }
-}
-
-json OperatorEditor::CreateSkillData()
-{
-    const char* effectKeys[] = { "atk", "def", "attack_speed", "cost", "heal" };
-    std::string effectKey = effectKeys[_inputEffectType];
-
-    return {
-        {"skillId", std::string(_inputSkillId)},
-        {"name", std::string(_inputSkillName)},
-        {"description", std::string(_inputSkillDesc)},
-        {"skillType", _inputSkillType},
-        {"spData", {
-            {"spType", _inputSpType},
-            {"spCost", _inputSpCost},
-            {"initSp", _inputInitSp}
-        }},
-        {"duration", Snap1(_inputDuration)},
-        {"effects", json::array({
-            {{"key", effectKey}, {"value", _inputEffectValue}}
-        })}
-    };
-}
-
-void OperatorEditor::LoadSkillToBuffer(const json& skillData)
-{
-    strcpy_s(_inputSkillId, skillData["skillId"].get<std::string>().c_str());
-    strcpy_s(_inputSkillName, skillData["name"].get<std::string>().c_str());
-    strcpy_s(_inputSkillDesc, skillData["description"].get<std::string>().c_str());
-
-    _inputSkillType = skillData["skillType"];
-    _inputSpType = skillData["spData"]["spType"];
-    _inputSpCost = skillData["spData"]["spCost"];
-    _inputInitSp = skillData["spData"]["initSp"];
-    _inputDuration = skillData["duration"];
-
-    if (!skillData["effects"].empty())
-    {
-        std::string effectKey = skillData["effects"][0]["key"];
-        _inputEffectValue = skillData["effects"][0]["value"];
-
-        if (effectKey == "atk") _inputEffectType = 0;
-        else if (effectKey == "def") _inputEffectType = 1;
-        else if (effectKey == "attack_speed") _inputEffectType = 2;
-        else if (effectKey == "cost") _inputEffectType = 3;
-        else if (effectKey == "heal") _inputEffectType = 4;
     }
 }

@@ -3,6 +3,8 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 
+#include "Level.h"
+
 using json = nlohmann::ordered_json;
 
 class LevelEditor
@@ -23,13 +25,11 @@ private:
     // 타일 타입
     enum class TileType
     {
-        Forbidden = 0,   // tile_forbidden
-        Road = 1,        // tile_road
-        Wall = 2,        // tile_wall
-        Start = 3,       // tile_start
-        End = 4,         // tile_end
-        HighGround = 5,  // tile_highground
-        Hole = 6,        // tile_hole
+        None = 0,   // 배치 불가
+        Ground,     // 지상
+        HighGround, // 고지대
+        Start,
+        End,
         MAX
     };
 
@@ -102,7 +102,7 @@ private:
     char _inputLevelId[64] = ""; // 00-01 형식
 
     // 그리드 상태
-    TileType _selectedTileType = TileType::Road;
+    TileType _selectedTileType = TileType::None;
     int _selectedGridRow = -1;
     int _selectedGridCol = -1;
 

@@ -192,7 +192,7 @@ void LevelEditor::RenderLevelsList()
 				// 편집 상태 초기화
 				_selectedGridRow = -1;
 				_selectedGridCol = -1;
-				_selectedTileType = TileType::Road;
+				_selectedTileType = TileType::Ground;
 			}
 
 			ImGui::SameLine();
@@ -491,7 +491,7 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 		level.tiles.clear();
 		for (int i = 0; i < level.gridRows * level.gridCols; i++)
 		{
-			level.tiles.push_back(CreateTileData(TileType::Forbidden));
+			level.tiles.push_back(CreateTileData(TileType::None));
 		}
 
 		SyncJsonFromGrid(level);
@@ -511,7 +511,7 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 		level.tiles.clear();
 		for (int i = 0; i < level.gridRows * level.gridCols; i++)
 		{
-			level.tiles.push_back(CreateTileData(TileType::Forbidden));
+			level.tiles.push_back(CreateTileData(TileType::None));
 		}
 
 		SyncJsonFromGrid(level);
@@ -523,7 +523,7 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 	// 타일 브러시 선택
 	ImGui::Separator();
 	ImGui::Text("타일 브러시:");
-	const char* tileTypes[] = { "금지", "도로", "벽", "시작", "종료", "고지", "구멍" };
+	const char* tileTypes[] = { "금지", "지상", "고지대", "시작", "종료" };
 	for (int i = 0; i < (int)TileType::MAX; i++)
 	{
 		ImU32 color = GetTileColor((TileType)i);
@@ -573,19 +573,17 @@ void LevelEditor::RenderGridEditor(LevelData& level)
 			ImVec2 p_max(p_min.x + cellSize, p_min.y + cellSize);
 
 			// 타일 인덱스 가져오기
-			int tileIndex = jsonRow * level.gridCols + col;
+			int tileIndex = gameRow * level.gridCols + col;
 
 			// 타일 타입 결정
-			TileType tileType = TileType::Forbidden;
+			TileType tileType = TileType::None;
 			if (tileIndex < (int)level.tiles.size())
 			{
 				std::string tileKey = level.tiles[tileIndex].value("tileKey", "tile_forbidden");
-				if (tileKey == "tile_road") tileType = TileType::Road;
-				else if (tileKey == "tile_wall") tileType = TileType::Wall;
+				if (tileKey == "tile_road") tileType = TileType::Ground;
+				else if (tileKey == "tile_highground") tileType = TileType::HighGround;
 				else if (tileKey == "tile_start") tileType = TileType::Start;
 				else if (tileKey == "tile_end") tileType = TileType::End;
-				else if (tileKey == "tile_highground") tileType = TileType::HighGround;
-				else if (tileKey == "tile_hole") tileType = TileType::Hole;
 			}
 
 			// 색상 적용
@@ -1119,18 +1117,16 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 			ImVec2 p_max(p_min.x + cellSize, p_min.y + cellSize);
 
 			// 타일 타입에 따른 색상 (연하게)
-			int tileIndex = jsonRow * level.gridCols + col;
-			TileType tileType = TileType::Forbidden;
+			int tileIndex = gameRow * level.gridCols + col;
+			TileType tileType = TileType::None;
 
 			if (tileIndex < (int)level.tiles.size())
 			{
 				std::string tileKey = level.tiles[tileIndex].value("tileKey", "tile_forbidden");
-				if (tileKey == "tile_road") tileType = TileType::Road;
-				else if (tileKey == "tile_wall") tileType = TileType::Wall;
+				if (tileKey == "tile_road") tileType = TileType::Ground;
+				else if (tileKey == "tile_highground") tileType = TileType::HighGround;
 				else if (tileKey == "tile_start") tileType = TileType::Start;
 				else if (tileKey == "tile_end") tileType = TileType::End;
-				else if (tileKey == "tile_highground") tileType = TileType::HighGround;
-				else if (tileKey == "tile_hole") tileType = TileType::Hole;
 			}
 
 			// 타일 색상 (투명도 낮춤)
@@ -1274,7 +1270,7 @@ void LevelEditor::RenderRouteOnGrid(LevelData& level, json& route)
 		canvas_pos.x + (endCol + 0.5f) * cellSize,
 		canvas_pos.y + (endJsonRow + 0.5f) * cellSize
 	);
-	draw_list->AddCircleFilled(endCenter, cellSize * 0.3f, IM_COL32(255, 0, 0, 255));
+	draw_list->AddCircleFilled(endCenter, cellSize * 0.3f, IM_COL32(0, 0, 255, 255));
 	draw_list->AddText(ImVec2(endCenter.x - 10, endCenter.y - 10), IM_COL32(255, 255, 255, 255), "E");
 
 	// 체크포인트 그리기 (노란 원 + 번호)
@@ -2156,7 +2152,7 @@ void LevelEditor::InitializeEmptyLevel(LevelData& level, const std::string& leve
 	level.tiles.clear();
 	for (int i = 0; i < level.gridRows * level.gridCols; i++)
 	{
-		level.tiles.push_back(CreateTileData(TileType::Forbidden));
+		level.tiles.push_back(CreateTileData(TileType::None));
 	}
 
 	SyncJsonFromGrid(level);
@@ -2209,7 +2205,8 @@ void LevelEditor::SyncJsonFromGrid(LevelData& level)
 		json row = json::array();
 		for (int col = 0; col < level.gridCols; col++)
 		{
-			int tileIndex = jsonRow * level.gridCols + col;
+			int gameRow = JsonIndexToGameRow(jsonRow, level.gridRows);
+			int tileIndex = gameRow * level.gridCols + col;
 			row.push_back(tileIndex);
 		}
 		level.fullData["mapData"]["map"].push_back(row);
@@ -2221,35 +2218,31 @@ void LevelEditor::SyncJsonFromGrid(LevelData& level)
 
 json LevelEditor::CreateTileData(TileType type)
 {
-	const char* tileKey = TileTypeToTileKey(type);
-
-	json tile = {
-		{"tileKey", tileKey},
-		{"heightType", (type == TileType::HighGround) ? 1 : 0},
-		{"buildableType",
-			(type == TileType::Road || type == TileType::HighGround) ? 1 :
-			(type == TileType::Wall) ? 2 : 0},
-		{"passableMask",
-			(type == TileType::Road || type == TileType::Start || type == TileType::End) ? 3 : 2},
-		{"playerSideMask", 0},
-		{"blackboard", json::array()},
-		{"effects", json::array()}
+	static const TileInfo tileInfos[] = {
+		{"tile_forbidden",  0},
+		{"tile_road",       1},
+		{"tile_highground", 2},
+		{"tile_start",      0},
+		{"tile_end",        0}
 	};
 
-	return tile;
+	const TileInfo& info = tileInfos[(int)type];
+
+	return {
+		{"tileKey", info.key},
+		{"buildableType", info.buildalbe}
+	};
 }
 
 const char* LevelEditor::TileTypeToString(TileType type)
 {
 	switch (type)
 	{
-	case TileType::Forbidden: return "금지";
-	case TileType::Road: return "도로";
-	case TileType::Wall: return "벽";
+	case TileType::None: return "금지";
+	case TileType::Ground: return "지상";
+	case TileType::HighGround: return "고지대";
 	case TileType::Start: return "시작";
 	case TileType::End: return "종료";
-	case TileType::HighGround: return "고지";
-	case TileType::Hole: return "구멍";
 	default: return "알 수 없음";
 	}
 }
@@ -2258,13 +2251,11 @@ const char* LevelEditor::TileTypeToTileKey(TileType type)
 {
 	switch (type)
 	{
-	case TileType::Forbidden: return "tile_forbidden";
-	case TileType::Road: return "tile_road";
-	case TileType::Wall: return "tile_wall";
-	case TileType::Start: return "tile_start";
-	case TileType::End: return "tile_end";
+	case TileType::None: return "tile_forbidden";
+	case TileType::Ground: return "tile_road";
 	case TileType::HighGround: return "tile_highground";
-	case TileType::Hole: return "tile_hole";
+	case TileType::Start: return "tile_start";
+	case TileType::End: return "tile_end";;
 	default: return "tile_forbidden";
 	}
 }
@@ -2273,13 +2264,11 @@ int LevelEditor::GetTileColor(TileType type)
 {
 	switch (type)
 	{
-	case TileType::Forbidden: return IM_COL32(40, 40, 40, 255);       // 어두운 회색
-	case TileType::Road: return IM_COL32(180, 140, 100, 255);         // 갈색
-	case TileType::Wall: return IM_COL32(100, 100, 100, 255);         // 회색
+	case TileType::None: return IM_COL32(40, 40, 40, 255);				// 어두운 회색
+	case TileType::Ground: return IM_COL32(180, 140, 100, 255);			// 갈색
+	case TileType::HighGround: return IM_COL32(100, 100, 100, 255);		// 회색
 	case TileType::Start: return IM_COL32(0, 255, 0, 255);            // 초록
-	case TileType::End: return IM_COL32(255, 0, 0, 255);              // 빨강
-	case TileType::HighGround: return IM_COL32(150, 180, 150, 255);   // 연두
-	case TileType::Hole: return IM_COL32(20, 20, 60, 255);            // 어두운 파랑
+	case TileType::End: return IM_COL32(0, 0, 255, 255);              // 빨강
 	default: return IM_COL32(0, 0, 0, 255);                           // 검정
 	}
 }

@@ -158,6 +158,7 @@
     <ClInclude Include="..\ThirdParty\nlohmann\json.hpp" />
     <ClInclude Include="EnemyEditor.h" />
     <ClInclude Include="ImGuiRAII.h" />
+    <ClInclude Include="Level.h" />
     <ClInclude Include="LevelEditor.h" />
     <ClInclude Include="OperatorEditor.h" />
     <ClInclude Include="Skill.h" />

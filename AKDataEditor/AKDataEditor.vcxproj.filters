@@ -118,5 +118,8 @@
     <ClInclude Include="ImGuiRAII.h">
       <Filter>Helper</Filter>
     </ClInclude>
+    <ClInclude Include="Level.h">
+      <Filter>Data</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

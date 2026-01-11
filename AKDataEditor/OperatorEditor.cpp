@@ -67,51 +67,12 @@ void OperatorEditor::LoadOperators()
                 // 마이그레이션 로직
                 for (auto& op : _operatorData["operators"])
                 {
-                    if (op.contains("phases") && !op["phases"].empty())
+                    if (dataVersion < 2 && op.contains("skills"))
                     {
-                        auto& attrs = op["phases"][0]["attributesKeyFrames"][0]["data"];
-
-                        // baseAttackTime 반올림
-                        if (attrs.contains("baseAttackTime"))
-                        {
-                            float oldValue = attrs["baseAttackTime"];
-                            float newValue = Snap2(static_cast<double>(oldValue));
-                            if (std::abs(oldValue - newValue) > 0.001f)
-                            {
-                                attrs["baseAttackTime"] = newValue;
-                                migrated = true;
-                            }
-                        }
-
-                        // magicResistance 반올림
-                        if (attrs.contains("magicResistance"))
-                        {
-                            float oldValue = attrs["magicResistance"];
-                            float newValue = Snap2(static_cast<double>(oldValue));
-                            if (std::abs(oldValue - newValue) > 0.001f)
-                            {
-                                attrs["magicResistance"] = newValue;
-                                migrated = true;
-                            }
-                        }
-                    }
-
-                    // 스킬 duration 반올림
-                    if (op.contains("skills"))
-                    {
-                        for (auto& skill : op["skills"])
-                        {
-                            if (skill.contains("duration"))
-                            {
-                                float oldValue = skill["duration"];
-                                float newValue = Snap2(static_cast<double>(oldValue));
-                                if (std::abs(oldValue - newValue) > 0.001f)
-                                {
-                                    skill["duration"] = newValue;
-                                    migrated = true;
-                                }
-                            }
-                        }
+                        std::cout << "[Migration v2] Removing 'skills' field from " << op["charId"].get<std::string>() << '\n';
+                        op.erase("skills");
+                        op["skillIds"] = json::array();
+                        migrated = true;
                     }
                 }
 

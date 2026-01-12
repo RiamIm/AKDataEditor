@@ -3,6 +3,8 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 
+#include "Level.h"
+
 using json = nlohmann::ordered_json;
 
 class LevelEditor
@@ -23,13 +25,11 @@ private:
     // 타일 타입
     enum class TileType
     {
-        Forbidden = 0,   // tile_forbidden
-        Road = 1,        // tile_road
-        Wall = 2,        // tile_wall
-        Start = 3,       // tile_start
-        End = 4,         // tile_end
-        HighGround = 5,  // tile_highground
-        Hole = 6,        // tile_hole
+        None = 0,   // 배치 불가
+        Ground,     // 지상
+        HighGround, // 고지대
+        Start,
+        End,
         MAX
     };
 
@@ -102,7 +102,7 @@ private:
     char _inputLevelId[64] = ""; // 00-01 형식
 
     // 그리드 상태
-    TileType _selectedTileType = TileType::Road;
+    TileType _selectedTileType = TileType::None;
     int _selectedGridRow = -1;
     int _selectedGridCol = -1;
 
@@ -114,10 +114,8 @@ private:
     bool _routeEditMode = false;
 
     // 웨이브 편집 상태
-    int _selectedWaveIndex = -1;
     int _selectedFragmentIndex = -1;
     int _selectedActionIndex = -1;
-    bool _showWaveDeleteConfirm = false;
     bool _showFragmentDeleteConfirm = false;
     char _inputEnemyKey[128] = "";  // 적 키 입력용
     std::vector<std::string> _enemyKeys;  // enemy_table의 적 목록
@@ -138,9 +136,7 @@ private:
     void RenderRouteOnGrid(LevelData& level, json& route);
 
     void RenderWaveEditor(LevelData& level);
-    void RenderWaveList(LevelData& level, int waveCount);
-    void RenderWaveSetting(LevelData& level, json& wave);
-    void RenderFragmentList(json& wave);  
+    void RenderFragmentList(LevelData& level);
     void RenderFragmentEditor(LevelData& level, json& fragment);  
     void RenderEnemySelector(LevelData& level, json& fragment);  
     void RenderRoutePreview(LevelData& level, int routeIndex);

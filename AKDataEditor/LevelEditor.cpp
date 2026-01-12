@@ -1330,20 +1330,23 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 {
 	ImGui::SeparatorText("웨이브 편집");
 
-	// 웨이브 개수 표시
-	int waveCount = 0;
-	if (level.fullData.contains("waves"))
+	if (!level.fullData.contains("waves") || level.fullData["waves"].empty())
 	{
-		waveCount = (int)level.fullData["waves"].size();
+		level.fullData["waves"].push_back({
+			{"preDelay", 0.0},
+			{"postDelay", 0.0},
+			{"maxTimeWaitingForNextWave", -1.0},
+			{"fragments", json::array()},
+			{"advancedWaveTag", nullptr}
+		});
 	}
 
-	ImGui::Text("현재 웨이브 개수: %d", waveCount);
-	ImGui::Separator();
+	auto& wave = level.fullData["waves"][0];
 
 	// 좌 30%
 	ImVec2 availRegion = ImGui::GetContentRegionAvail();
 	ImGui::BeginChild("WaveList", ImVec2(availRegion.x * 0.3f, availRegion.y - 60), true);
-	RenderWaveList(level, waveCount);
+	RenderFragmentList(level);
 	ImGui::EndChild();
 
 	ImGui::SameLine();
@@ -1352,34 +1355,20 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 							ImGuiChildFlags_AlwaysUseWindowPadding;
 
 	ImGui::BeginChild("WaveEditArea", ImVec2(0, availRegion.y - 60), flags);
-	if (_selectedWaveIndex >= 0 && _selectedWaveIndex < waveCount)
+
+	int fragmentCount = (int)wave["fragments"].size();
+	if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
 	{
-		auto& wave = level.fullData["waves"][_selectedWaveIndex];
-
-		// wave 설정
-		RenderWaveSetting(level, wave);
+		auto& fragment = level.fullData["fragments"][_selectedFragmentIndex];
+		RenderFragmentEditor(level, fragment);
 
 		ImGui::Separator();
 
-		RenderFragmentList(wave);
-
-		ImGui::Separator();
-
-		// fragment 편집
-		int fragmentCount = (int)wave["fragments"].size();
-		if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
-		{
-			auto& fragment = wave["fragments"][_selectedFragmentIndex];
-			RenderFragmentEditor(level, fragment);
-
-			ImGui::Separator();
-
-			RenderEnemySelector(level, fragment);
-		}
+		RenderEnemySelector(level, fragment);
 	}
 	else
 	{
-		ImGui::TextColored(COLOR_GRAY, "웨이브를 선택하세요.");
+		ImGui::TextColored(COLOR_GRAY, "Fragment를 선택하세요.");
 	}
 
 	ImGui::EndChild();
@@ -1388,13 +1377,12 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 
 	if (!level.waveCompleted)
 	{
-		ImGui::TextColored(COLOR_YELLOW, "웨이브 편집을 완료하면 레벨 제작이 완료됩니다.");
+		ImGui::TextColored(COLOR_YELLOW, "적 스폰 편집을 완료하면 레벨 제작이 완료됩니다.");
 
-		if (waveCount > 0)
+		if (fragmentCount > 0)
 		{
 			if (ImGui::Button("웨이브 편집 완료", ImVec2(200, 0)))
 			{
-				_selectedWaveIndex = -1;
 				_selectedFragmentIndex = -1;
 				_selectedActionIndex = -1;
 
@@ -1408,19 +1396,19 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 		else
 		{
 			ImGui::BeginDisabled();
-			ImGui::Button("웨이브 편집 완료", ImVec2(200, 0));
+			ImGui::Button("적 스폰 편집 완료", ImVec2(200, 0));
 			ImGui::EndDisabled();
 
 			ImGui::SameLine();
-			ImGui::TextColored(COLOR_RED, "최소 1개 이상의 웨이브가 필요합니다.");
+			ImGui::TextColored(COLOR_RED, "최소 1개 이상의 fragment가 필요합니다.");
 		}
 	}
 	else
 	{
-		ImGui::TextColored(COLOR_GREEN, "웨이브 편집 완료됨");
+		ImGui::TextColored(COLOR_GREEN, "적 스폰 편집 완료됨");
 		ImGui::TextColored(COLOR_GREEN, "레벨 제작 완료!");
 
-		if (ImGui::Button("웨이브 다시 편집", ImVec2(200, 0)))
+		if (ImGui::Button("적 스폰 다시 편집", ImVec2(200, 0)))
 		{
 			level.waveCompleted = false;
 			level.isModified = true;
@@ -1429,39 +1417,6 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 	}
 
 	// 삭제 확인 팝업
-	if (_showWaveDeleteConfirm)
-	{
-		ImGui::OpenPopup("웨이브 삭제 확인");
-		_showWaveDeleteConfirm = false;
-	}
-
-	if (ImGui::BeginPopupModal("웨이브 삭제 확인", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-	{
-		ImGui::TextColored(COLOR_RED, "이 웨이브를 정말 삭제할까요?");
-		ImGui::Separator();
-		ImGui::Text("대상: Wave %d", _selectedWaveIndex);
-		ImGui::Separator();
-
-		if (ImGui::Button("예", ImVec2(120, 0)))
-		{
-			level.fullData["waves"].erase(level.fullData["waves"].begin() + _selectedWaveIndex);
-			_selectedWaveIndex = -1;
-			_selectedFragmentIndex = -1;
-			level.isModified = true;
-			_hasUnsavedChanges = true;
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::SameLine();
-
-		if (ImGui::Button("아니요", ImVec2(120, 0)))
-		{
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::EndPopup();
-	}
-
 	if (_showFragmentDeleteConfirm)
 	{
 		ImGui::OpenPopup("Fragment 삭제 확인");
@@ -1477,7 +1432,6 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 
 		if (ImGui::Button("예", ImVec2(120, 0)))
 		{
-			auto& wave = level.fullData["waves"][_selectedWaveIndex];
 			wave["fragments"].erase(wave["fragments"].begin() + _selectedFragmentIndex);
 			_selectedFragmentIndex = -1;
 			level.isModified = true;
@@ -1496,115 +1450,16 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 	}
 }
 
-void LevelEditor::RenderWaveList(LevelData& level, int waveCount)
+void LevelEditor::RenderFragmentList(LevelData& level)
 {
-	ImGui::Text("웨이브 목록");
-	ImGui::Separator();
-
-	if (waveCount == 0)
-	{
-		ImGui::TextColored(COLOR_GRAY, "웨이브가 없습니다.");
-	}
-	else
-	{
-		for (int i = 0; i < waveCount; ++i)
-		{
-			ImGui::PushID(i);
-
-			char waveName[32];
-			snprintf(waveName, sizeof(waveName), "Wave %d", i);
-
-			bool isSelected = (_selectedWaveIndex == i);
-			if (isSelected)
-			{
-				ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.6f, 0.3f, 1.0f));
-			}
-			
-			if (ImGui::Selectable(waveName, isSelected))
-			{
-				_selectedWaveIndex = i;
-				_selectedFragmentIndex = -1;
-				_selectedActionIndex = -1;
-			}
-
-			if (isSelected)
-			{
-				ImGui::PopStyleColor();
-			}
-
-			ImGui::PopID();
-		}
-	}
-
-	ImGui::Separator();
-
-	if (ImGui::Button("웨이브 추가", ImVec2(-1, 0)))
-	{
-		json newWave = {
-			{"preDelay", 0.0},
-			{"postDelay", 0.0},
-			{"maxTimeWaitingForNextWave", -1.0},
-			{"fragments", json::array()},
-			{"advancedWaveTag", nullptr}
-		};
-
-		level.fullData["waves"].push_back(newWave);
-		_selectedWaveIndex = waveCount;
-		_selectedFragmentIndex = -1;
-		_selectedActionIndex = -1;
-
-		level.isModified = true;
-		_hasUnsavedChanges = true;
-	}
-
-	if (_selectedWaveIndex >= 0 && _selectedWaveIndex < waveCount)
-	{
-		if (ImGui::Button("웨이브 삭제", ImVec2(-1, 0)))
-		{
-			_showWaveDeleteConfirm = true;
-		}
-	}
-}
-
-void LevelEditor::RenderWaveSetting(LevelData& level, json& wave)
-{
-	ImGui::Text("웨이브 설정");
-	ImGui::Separator();
-
-	float preDelay = wave.value("preDelay", 0.0f);
-	float postDelay = wave.value("postDelay", 0.0f);
-
-	ImGui::PushItemWidth(150);
-	if (ImGui::InputFloat("시작 지연 시간", &preDelay, 0.1f, 1.0f, "%.1f"))
-	{
-		wave["preDelay"] = preDelay;
-		level.isModified = true;
-		_hasUnsavedChanges = true;
-	}
-
-	if (ImGui::InputFloat("종료 지연 시간", &postDelay, 0.1f, 1.0f, "%.1f"))
-	{
-		wave["postDelay"] = postDelay;
-		level.isModified = true;
-		_hasUnsavedChanges = true;
-	}
-	ImGui::PopItemWidth();
-}
-
-void LevelEditor::RenderFragmentList(json& wave)
-{
+	auto& wave = level.fullData["waves"][0];
 	int fragmentCount = (int)wave["fragments"].size();
-	ImGui::Text("Fragment 개수: %d", fragmentCount);
 
-	if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
-	{
-		ImGui::SameLine();
-		ImGui::TextColored(COLOR_YELLOW, " | 선택됨: Fragment %d", _selectedFragmentIndex);
-	}
-
+	ImGui::Text("Fragment 목록");
+	ImGui::Text("총 %d개", fragmentCount);
 	ImGui::Separator();
 
-	ImGui::BeginChild("FragmentList", ImVec2(0, 100), true);
+	ImGui::BeginChild("FragmentListScroll", ImVec2(0, -80), false);
 
 	if (fragmentCount == 0)
 	{
@@ -1618,14 +1473,15 @@ void LevelEditor::RenderFragmentList(json& wave)
 
 			auto& frag = wave["fragments"][i];
 			int actionCount = (int)frag["actions"].size();
+			float fragDelay = frag.value("preDelay", 0.0f);
 
 			char fragName[64];
-			snprintf(fragName, sizeof(fragName), "Fragment %d (적: %d)", i, actionCount);
+			snprintf(fragName, sizeof(fragName), "Fragment %d", i);
 
 			bool isSelected = (_selectedFragmentIndex == i);
 			if (isSelected)
 			{
-				ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.5f, 0.6f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.6f, 0.5f, 0.3f, 1.0f));
 			}
 
 			if (ImGui::Selectable(fragName, isSelected))
@@ -1639,13 +1495,19 @@ void LevelEditor::RenderFragmentList(json& wave)
 				ImGui::PopStyleColor();
 			}
 
+			ImGui::Indent();
+			ImGui::TextColored(COLOR_GRAY, "시작: %.1f초 | 적: %d", fragDelay, actionCount);
+			ImGui::Unindent();
+
 			ImGui::PopID();
 		}
 	}
 
 	ImGui::EndChild();
 
-	if (ImGui::Button("Fragment 추가", ImVec2(150, 0)))
+	ImGui::Separator();
+
+	if (ImGui::Button("Fragment 추가", ImVec2(-1, 0)))
 	{
 		json newFragment = {
 			{"preDelay", 0.0},
@@ -1655,13 +1517,14 @@ void LevelEditor::RenderFragmentList(json& wave)
 		wave["fragments"].push_back(newFragment);
 		_selectedFragmentIndex = fragmentCount;
 		_selectedActionIndex = -1;
-	}
 
-	ImGui::SameLine();
+		level.isModified = true;
+		_hasUnsavedChanges = true;
+	}
 
 	if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
 	{
-		if (ImGui::Button("Fragment 삭제", ImVec2(150, 0)))
+		if (ImGui::Button("Fragment 삭제", ImVec2(-1, 0)))
 		{
 			_showFragmentDeleteConfirm = true;
 		}
@@ -1674,11 +1537,11 @@ void LevelEditor::RenderFragmentEditor(LevelData& level, json& fragment)
 	ImGui::Separator();
 
 	// Fragment 설정
-	float fragPreDelay = fragment.value("preDelay", 0.0f);
+	double fragPreDelay = fragment.value("preDelay", 0.0);
 	ImGui::PushItemWidth(150);
-	if (ImGui::InputFloat("Fragment 시작 지연", &fragPreDelay, 0.1f, 1.0f, "%.1f"))
+	if (ImGui::InputDouble("Fragment 시작 지연", &fragPreDelay, 0.1f, 1.0f, "%.1f"))
 	{
-		fragment["preDelay"] = fragPreDelay;
+		fragment["preDelay"] = Snap1(fragPreDelay);
 		level.isModified = true;
 		_hasUnsavedChanges = true;
 	}
@@ -1692,7 +1555,7 @@ void LevelEditor::RenderFragmentEditor(LevelData& level, json& fragment)
 	ImGui::Separator();
 
 	ImGuiChildFlags flags = ImGuiChildFlags_Border |
-							ImGuiChildFlags_AutoResizeY;
+		ImGuiChildFlags_AutoResizeY;
 
 	ImGui::BeginChild("ActionList", ImVec2(0, 0), flags);
 
@@ -2143,6 +2006,14 @@ void LevelEditor::InitializeEmptyLevel(LevelData& level, const std::string& leve
 		{"randomSeed", 0},
 		{"operaConfig", nullptr}
 	};
+
+	level.fullData["waves"].push_back({
+		{"preDelay", 0.0},
+		{"postDelay", 0.0},
+		{"maxTimeWaitingForNextWave", -1.0},
+		{"fragments", json::array()},
+		{"advancedWaveTag", nullptr}
+	});
 
 	// 그리드 맵 초기화
 	level.gridMap.clear();

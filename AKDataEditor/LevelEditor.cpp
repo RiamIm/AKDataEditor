@@ -7,6 +7,7 @@
 #include <imgui/imgui_impl_gdi.h>
 
 #include "Utility.h"
+#include "ImGuiRAII.h"
 
 namespace fs = std::filesystem;
 
@@ -1359,7 +1360,7 @@ void LevelEditor::RenderWaveEditor(LevelData& level)
 	int fragmentCount = (int)wave["fragments"].size();
 	if (_selectedFragmentIndex >= 0 && _selectedFragmentIndex < fragmentCount)
 	{
-		auto& fragment = level.fullData["fragments"][_selectedFragmentIndex];
+		auto& fragment = wave["fragments"][_selectedFragmentIndex];
 		RenderFragmentEditor(level, fragment);
 
 		ImGui::Separator();
@@ -1473,7 +1474,7 @@ void LevelEditor::RenderFragmentList(LevelData& level)
 
 			auto& frag = wave["fragments"][i];
 			int actionCount = (int)frag["actions"].size();
-			float fragDelay = frag.value("preDelay", 0.0f);
+			double fragDelay = frag.value("preDelay", 0.0);
 
 			char fragName[64];
 			snprintf(fragName, sizeof(fragName), "Fragment %d", i);
@@ -1635,8 +1636,8 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 
 		static int inputCount = 1;
 		static int inputRouteIndex = 0;
-		static float inputPreDelay = 0.0f;
-		static float inputInterval = 0.5f;
+		static double inputPreDelay = 0.0;
+		static double inputInterval = 0.0;
 
 		ImGui::PushItemWidth(150);
 		ImGui::InputInt("개수", &inputCount);
@@ -1659,8 +1660,19 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 			ImGui::TextColored(COLOR_RED, "경로가 없습니다!");
 		}
 
-		ImGui::InputFloat("시작 지연", &inputPreDelay, 0.1f, 1.0f, "%.1f");
-		ImGui::InputFloat("스폰 간격", &inputInterval, 0.1f, 1.0f, "%.1f");
+		ImGui::InputDouble("시작 지연", &inputPreDelay, 0.1, 1.0, "%.1f");
+		if (inputCount == 1)
+		{
+			SCOPED_DISABLED(true);
+			inputInterval = 0.0;
+			ImGui::InputDouble("스폰 간격", &inputInterval, 0.1, 1.0, "%.1f");
+		}
+		else
+		{
+			ImGui::InputDouble("스폰 간격", &inputInterval, 0.1, 1.0, "%.1f");
+		}
+
+
 		ImGui::PopItemWidth();
 
 		ImGui::Separator();
@@ -1680,8 +1692,8 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 					{"managedByScheduler", true},
 					{"key", _enemyKeys[_selectedEnemyIndex]},
 					{"count", inputCount},
-					{"preDelay", inputPreDelay},
-					{"interval", inputInterval},
+					{"preDelay", Snap1(inputPreDelay)},
+					{"interval", Snap1(inputInterval)},
 					{"routeIndex", inputRouteIndex},
 					{"blockFragment", false},
 					{"autoPreviewRoute", false},

@@ -56,65 +56,7 @@ void EnemyEditor::LoadEnemies()
 
 			if (dataVersion < currentVersion)
 			{
-				std::cout << "[Migration] Upgrading data form v" << dataVersion << " to v" << currentVersion << '\n';
-
 				bool migrated = false;
-
-				for (auto& enemy : _enemyData["enemies"])
-				{
-					if (enemy.contains("value") && !enemy["value"].empty())
-					{
-						auto& enemyData = enemy["value"][0]["enemyData"];
-						auto& attrs = enemyData["attributes"];
-
-						if (enemyData.contains("rangeRadius"))
-						{
-							float oldValue = enemyData["rangeRadius"];
-							float newValue = Snap1(static_cast<double>(oldValue));
-
-							if (std::abs(oldValue - newValue) > 0.01f)
-							{
-								enemyData["rangeRadius"] = newValue;
-								migrated = true;
-							}
-						}
-
-						if (attrs.contains("baseAttackTime"))
-						{
-							float oldValue = attrs["baseAttackTime"];
-							float newValue = Snap2(static_cast<double>(oldValue));
-
-							if (std::abs(oldValue - newValue) > 0.001f)
-							{
-								attrs["baseAttackTime"] = newValue;
-								migrated = true;
-							}
-						}
-
-						if (attrs.contains("moveSpeed"))
-						{
-							float oldValue = attrs["moveSpeed"];
-							float newValue = Snap1(static_cast<double>(oldValue));
-							if (std::abs(oldValue - newValue) > 0.01f)
-							{
-								attrs["moveSpeed"] = newValue;
-								migrated = true;
-							}
-						}
-
-						if (attrs.contains("magicResistance"))
-						{
-							float oldValue = attrs["magicResistance"];
-							float newValue = Snap2(static_cast<double>(oldValue));
-
-							if (std::abs(oldValue - newValue) > 0.001f)
-							{
-								attrs["magicResistance"] = newValue;
-								migrated = true;
-							}
-						}
-					}
-				}
 
 				if (migrated)
 				{

@@ -64,18 +64,6 @@ void OperatorEditor::LoadOperators()
 
                 bool migrated = false;
 
-                // 마이그레이션 로직
-                for (auto& op : _operatorData["operators"])
-                {
-                    if (dataVersion < 2 && op.contains("skills"))
-                    {
-                        std::cout << "[Migration v2] Removing 'skills' field from " << op["charId"].get<std::string>() << '\n';
-                        op.erase("skills");
-                        op["skillIds"] = json::array();
-                        migrated = true;
-                    }
-                }
-
                 if (migrated)
                 {
                     // 버전 업데이트

@@ -1546,6 +1546,19 @@ void LevelEditor::RenderFragmentEditor(LevelData& level, json& fragment)
 		level.isModified = true;
 		_hasUnsavedChanges = true;
 	}
+	ImGui::SameLine();
+	// 텍스트 색상만 있는 버튼
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+	ImGui::Button("(?)");
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::BeginTooltip();
+		ImGui::Text("Wave가 시작되고 해당 시간 경과 후 해당 Fragment시작");
+		ImGui::EndTooltip();
+	}
+
+	ImGui::PopStyleColor(3);
 	ImGui::PopItemWidth();
 
 	ImGui::Separator();
@@ -1661,6 +1674,22 @@ void LevelEditor::RenderEnemySelector(LevelData& level, json& fragment)
 		}
 
 		ImGui::InputDouble("시작 지연", &inputPreDelay, 0.1, 1.0, "%.1f");
+
+		ImGui::SameLine();
+		// 텍스트 색상만 있는 버튼
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+
+		ImGui::Button("(?)");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text("Fragment가 시작되고 해당 시간 경과 후 적 스폰");
+			ImGui::EndTooltip();
+		}
+
+		ImGui::PopStyleColor(2);
+
 		if (inputCount == 1)
 		{
 			SCOPED_DISABLED(true);
@@ -1847,9 +1876,6 @@ void LevelEditor::LoadEnemyTable(std::string solutionPath)
 				}
 			}
 		}
-
-		std::sort(_enemyKeys.begin(), _enemyKeys.end());
-
 		std::cout << "[level] Loaded " << _enemyKeys.size() << " enemies from enemy_table.json\n";
 	}
 	catch (json::exception& e)

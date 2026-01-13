@@ -48,8 +48,8 @@ void OperatorEditor::LoadOperators()
             std::cout << "Loaded " << _jsonPath << "\n";
 
             // ===== 버전 체크 및 마이그레이션 =====
-            int currentVersion = VERSION;  // 현재 에디터 버전
-            int dataVersion = 0;      // JSON 데이터 버전
+            std::string currentVersion = VERSION;  // 현재 에디터 버전
+            double dataVersion = 0.0;      // JSON 데이터 버전
 
             if (_operatorData.contains("version"))
             {
@@ -57,7 +57,7 @@ void OperatorEditor::LoadOperators()
             }
 
             // 버전이 낮을 때만 마이그레이션 실행
-            if (dataVersion < currentVersion)
+            if (dataVersion < stod(currentVersion))
             {
                 std::cout << "[Migration] Upgrading data from v" << dataVersion
                     << " to v" << currentVersion << "\n";

@@ -249,9 +249,17 @@ void LoadConfig()
 int main(int, char**)
 {
     // Create application window
+    std::string title = "AK Data Editor v" + std::string(VERSION);
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };
     ::RegisterClassEx(&wc);
-    HWND hwnd = ::CreateWindow(wc.lpszClassName, _T("AK Data Editor v1.1"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+    HWND hwnd;
+
+#ifdef UNICODE
+    std::wstring wtitle(title.begin(), title.end());
+    hwnd = ::CreateWindow(wc.lpszClassName, wtitle.c_str(), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+#else
+    hwnd = ::CreateWindow(wc.lpszClassName, title.c_str(), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+#endif
 
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -262,12 +270,21 @@ int main(int, char**)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
+#ifdef _DEBUG
     ImFont* font = io.Fonts->AddFontFromFileTTF(
         "../fonts/malgun.ttf",
         18.0f,
         NULL,
         io.Fonts->GetGlyphRangesKorean()
     );
+#else
+    ImFont* font = io.Fonts->AddFontFromFileTTF(
+        "fonts/malgun.ttf",
+        18.0f,
+        NULL,
+        io.Fonts->GetGlyphRangesKorean()
+    );
+#endif
 
     if (font == NULL)
     {

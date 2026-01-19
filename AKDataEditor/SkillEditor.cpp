@@ -28,7 +28,7 @@ void SkillEditor::LoadSkills()
             json j;
             file >> j;
 
-            _dataVersion = j.value("version", 0);
+            _dataVersion = j.value("version", std::string("0.0"));
 
             if (j.contains("skills")) 
             {

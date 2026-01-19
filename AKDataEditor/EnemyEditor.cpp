@@ -47,14 +47,14 @@ void EnemyEditor::LoadEnemies()
 			std::cout << "EnemyData Loaded " << _jsonPath << '\n';
 
 			std::string currentVersion = VERSION;
-			double dataVersion = 0.0;
+			std::string dataVersion = "0.0";
 
 			if (_enemyData.contains("version"))
 			{
-				dataVersion = _enemyData["version"];
+				dataVersion = _enemyData["version"].get<std::string>();
 			}
 
-			if (dataVersion < stod(currentVersion))
+			if (dataVersion != currentVersion)
 			{
 				bool migrated = false;
 

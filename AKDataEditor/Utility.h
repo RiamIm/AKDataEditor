@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <imgui/imgui.h>
 
-#define VERSION "2.0"
+#define VERSION "2.1"
 
 #define COLOR_RED		ImVec4(0.0f, 0.0f, 1.0f, 1.0f)
 #define COLOR_GREEN		ImVec4(0.0f, 1.0f, 0.0f, 1.0f)

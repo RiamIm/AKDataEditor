@@ -27,7 +27,7 @@ private:
 	std::vector<std::string> _operatorIds;
 	int _selectedOperatorIdx = 0;  
 	char _inputSkillSuffix[8] = "1";  
-	int _dataVersion = 0;
+	std::string _dataVersion = "0.0";
 
 
 	// 변경 감지

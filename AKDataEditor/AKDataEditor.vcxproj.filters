@@ -65,6 +65,9 @@
     <ClCompile Include="SkillEditor.cpp">
       <Filter>Editor</Filter>
     </ClCompile>
+    <ClCompile Include="Migration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ThirdParty\imgui\imconfig.h">
@@ -120,6 +123,9 @@
     </ClInclude>
     <ClInclude Include="Level.h">
       <Filter>Data</Filter>
+    </ClInclude>
+    <ClInclude Include="Migration.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

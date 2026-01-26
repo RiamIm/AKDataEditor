@@ -1,4 +1,5 @@
 ﻿#include "EnemyEditor.h"
+#include "Migration.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -44,75 +45,46 @@ void EnemyEditor::LoadEnemies()
 		try
 		{
 			file >> _enemyData;
-			std::cout << "EnemyData Loaded " << _jsonPath << '\n';
+			std::cout << "[Enemy] Loaded " << _jsonPath << '\n';
 
-			std::string currentVersion = VERSION;
-			std::string dataVersion = "0.0";
-
-			if (_enemyData.contains("version"))
+			// 버전 체크 및 마이그레이션
+			if (Migration::CheckAndMigrate(Migration::DataType::Enemy, _enemyData))
 			{
-				dataVersion = _enemyData["version"].get<std::string>();
-			}
-
-			if (dataVersion != currentVersion)
-			{
-				bool migrated = false;
-
-				if (migrated)
-				{
-					// 버전 업데이트
-					_enemyData["version"] = currentVersion;
-
-					std::cout << "[Migration] Auto-saving fixed values...\n";
-					SaveEnemies();
-					std::cout << "[Migration] Complete!\n";
-				}
-				else
-				{
-					// 변경사항 없어도 버전만 업데이트
-					_enemyData["version"] = currentVersion;
-					SaveEnemies();
-				}
+				SaveEnemies();
 			}
 		}
-		catch (json::exception e)
+		catch (json::exception& e)
 		{
-			std::cout << "JSON parse Error: " << e.what() << '\n';
+			std::cout << "[Enemy] JSON parse error: " << e.what() << '\n';
 			_enemyData = { {"version", VERSION}, {"enemies", json::array()} };
 		}
 	}
 	else
 	{
-		std::cout << "File not found, creating new: " << _jsonPath << "\n";
+		std::cout << "[Enemy] File not found, creating new: " << _jsonPath << "\n";
 		_enemyData = { {"version", VERSION}, {"enemies", json::array()} };
 	}
 }
+
 
 void EnemyEditor::SaveEnemies()
 {
 	fs::path filePath(_jsonPath);
 	fs::create_directories(filePath.parent_path());
 
-	// version이 없으면 추가
-	if (!_enemyData.contains("version"))
-	{
-		_enemyData["version"] = VERSION;
-	}
-
-	// 순서 보장: 새 JSON 생성
 	json output;
-	output["version"] = _enemyData["version"];
+	output["version"] = VERSION;  // 항상 현재 버전으로 저장
 	output["enemies"] = _enemyData["enemies"];
 
 	std::ofstream file(_jsonPath);
 	if (file.is_open())
 	{
-		file << output.dump(2);  // output 저장
-		std::cout << "Saved to " << _jsonPath << "\n";
+		file << output.dump(2);
+		std::cout << "[Enemy] Saved to " << _jsonPath << "\n";
 	}
 	else
 	{
-		std::cout << "Failed to save!\n";
+		std::cout << "[Enemy] Failed to save!\n";
 	}
 }
 

@@ -1,4 +1,5 @@
 ﻿#include "LevelEditor.h"
+#include "Migration.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -1899,6 +1900,12 @@ LevelEditor::LevelData LevelEditor::LoadLevelFromFile(const std::string& fileNam
 		{
 			file >> level.fullData;
 
+			// 버전 체크 및 마이그레이션
+			if (Migration::CheckAndMigrate(Migration::DataType::Level, level.fullData))
+			{
+				level.isModified = true;  // 저장 필요 표시
+			}
+
 			// 옵션 불러오기
 			if (level.fullData.contains("options"))
 			{
@@ -1919,17 +1926,13 @@ LevelEditor::LevelData LevelEditor::LoadLevelFromFile(const std::string& fileNam
 				level.waveCompleted = meta.value("waveCompleted", false);
 			}
 
-			// 그리드 데이터 동기화
 			SyncGridFromJson(level);
 
-			level.isModified = false;
-
-			std::cout << "[Level] Loaded level: " << level.levelId << "\n";
+			std::cout << "[Level] Loaded: " << level.levelId << "\n";
 		}
 		catch (json::exception& e)
 		{
 			std::cout << "[Level] JSON parse error for " << fileName << ": " << e.what() << "\n";
-			// 실패 시 빈 레벨 초기화
 			InitializeEmptyLevel(level, level.levelId);
 		}
 	}
@@ -1946,6 +1949,8 @@ void LevelEditor::SaveLevelToFile(const LevelData& level)
 {
 	// JSON 업데이트
 	json saveData = level.fullData;
+
+	saveData["version"] = VERSION;
 
 	// 옵션 업데이트
 	saveData["options"]["characterLimit"] = level.characterLimit;
@@ -1996,6 +2001,7 @@ void LevelEditor::InitializeEmptyLevel(LevelData& level, const std::string& leve
 
 	// JSON 기본 구조 생성
 	level.fullData = {
+		{"version", VERSION},
 		{"options", {
 			{"characterLimit", level.characterLimit},
 			{"maxLifePoint", level.maxLifePoint},

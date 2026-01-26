@@ -1,4 +1,5 @@
 ﻿#include "OperatorEditor.h"
+#include "Migration.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -45,79 +46,46 @@ void OperatorEditor::LoadOperators()
         try
         {
             file >> _operatorData;
-            std::cout << "Loaded " << _jsonPath << "\n";
+            std::cout << "[Operator] Loaded " << _jsonPath << "\n";
 
-            // ===== 버전 체크 및 마이그레이션 =====
-            std::string currentVersion = VERSION;  // 현재 에디터 버전
-            std::string dataVersion = "0.0";      // JSON 데이터 버전
-
-            if (_operatorData.contains("version"))
+            // 버전 체크 및 마이그레이션
+            if (Migration::CheckAndMigrate(Migration::DataType::Operator, _operatorData))
             {
-                dataVersion = _operatorData["version"].get<std::string>();
-            }
-
-            // 버전이 낮을 때만 마이그레이션 실행
-            if (dataVersion != currentVersion)
-            {
-                std::cout << "[Migration] Upgrading data from v" << dataVersion
-                    << " to v" << currentVersion << "\n";
-
-                bool migrated = false;
-
-                if (migrated)
-                {
-                    // 버전 업데이트
-                    _operatorData["version"] = currentVersion;
-
-                    std::cout << "[Migration] Auto-saving fixed values...\n";
-                    SaveOperators();
-                    std::cout << "[Migration] Complete!\n";
-                }
-                else
-                {
-                    // 변경사항 없어도 버전만 업데이트
-                    _operatorData["version"] = currentVersion;
-                    SaveOperators();
-                }
+                SaveOperators();
             }
         }
         catch (const json::exception& e)
         {
-            std::cout << "JSON parse error: " << e.what() << "\n";
+            std::cout << "[Operator] JSON parse error: " << e.what() << "\n";
             _operatorData = { {"version", VERSION}, {"operators", json::array()} };
         }
     }
     else
     {
-        std::cout << "File not found, creating new: " << _jsonPath << "\n";
+        std::cout << "[Operator] File not found, creating new: " << _jsonPath << "\n";
         _operatorData = { {"version", VERSION}, {"operators", json::array()} };
     }
 }
+
 
 void OperatorEditor::SaveOperators()
 {
     fs::path filePath(_jsonPath);
     fs::create_directories(filePath.parent_path());
 
-    if (!_operatorData.contains("version"))
-    {
-        _operatorData["version"] = VERSION;
-    }
-
-    // 순서 보장
     json output;
-    output["version"] = _operatorData["version"];
+    output["version"] = VERSION;  // 항상 현재 버전으로 저장
     output["operators"] = _operatorData["operators"];
 
     std::ofstream file(_jsonPath);
     if (file.is_open())
     {
         file << output.dump(2);
-        std::cout << "Saved to " << _jsonPath << "\n";
+        std::cout << "[Operator] Saved to " << _jsonPath << "\n";
     }
     else
     {
-        std::cout << "Failed to save!\n";
+        std::cout << "[Operator] Failed to save!\n";
     }
 }
 

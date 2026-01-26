@@ -21,6 +21,8 @@
 #include "SkillEditor.h"
 #include "Utility.h"
 
+#include "Migration.h"
+
 static char solutionPath[512] = "";
 static bool pathInitialized = false;
 static bool showUnsavedWarning = false;
@@ -248,6 +250,8 @@ void LoadConfig()
 // Main code
 int main(int, char**)
 {
+    RegisterAllMigrations();
+
     // Create application window
     std::string title = "AK Data Editor v" + std::string(VERSION);
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };

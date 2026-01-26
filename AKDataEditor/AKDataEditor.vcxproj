@@ -142,6 +142,7 @@
     <ClCompile Include="EnemyEditor.cpp" />
     <ClCompile Include="LevelEditor.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Migration.cpp" />
     <ClCompile Include="OperatorEditor.cpp" />
     <ClCompile Include="SkillEditor.cpp" />
   </ItemGroup>
@@ -160,6 +161,7 @@
     <ClInclude Include="ImGuiRAII.h" />
     <ClInclude Include="Level.h" />
     <ClInclude Include="LevelEditor.h" />
+    <ClInclude Include="Migration.h" />
     <ClInclude Include="OperatorEditor.h" />
     <ClInclude Include="Skill.h" />
     <ClInclude Include="SkillEditor.h" />

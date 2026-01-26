@@ -1,4 +1,5 @@
 ﻿#include "SkillEditor.h"
+#include "Migration.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -28,14 +29,25 @@ void SkillEditor::LoadSkills()
             json j;
             file >> j;
 
-            _dataVersion = j.value("version", std::string("0.0"));
-
-            if (j.contains("skills")) 
+            // 버전 체크 및 마이그레이션
+            if (Migration::CheckAndMigrate(Migration::DataType::Skill, j))
             {
-                _skills = j["skills"].get<std::vector<Skill>>();
+                // 마이그레이션 후 저장 (SaveSkills는 _skills 필요하므로 먼저 로드)
+                if (j.contains("skills"))
+                {
+                    _skills = j["skills"].get<std::vector<Skill>>();
+                }
+                SaveSkills();
+            }
+            else
+            {
+                if (j.contains("skills"))
+                {
+                    _skills = j["skills"].get<std::vector<Skill>>();
+                }
             }
 
-            std::cout << "[Skill] Loaded " << _skills.size() << " skills (v" << _dataVersion << ")\n";
+            std::cout << "[Skill] Loaded " << _skills.size() << " skills\n";
         }
         catch (json::exception& e)
         {
@@ -50,28 +62,28 @@ void SkillEditor::LoadSkills()
     }
 }
 
+
 void SkillEditor::SaveSkills()
 {
     fs::path filePath(_jsonPath);
     fs::create_directories(filePath.parent_path());
 
     json output;
-    output["version"] = _dataVersion;
+    output["version"] = VERSION;  // 항상 현재 버전으로 저장
     output["skills"] = _skills;
 
     std::ofstream file(_jsonPath);
     if (file.is_open())
     {
         file << output.dump(2);
-        std::cout << "Saved to " << _jsonPath << '\n';
+        std::cout << "[Skill] Saved to " << _jsonPath << '\n';
     }
     else
     {
-        std::cout << "Failed to save!\n";
+        std::cout << "[Skill] Failed to save!\n";
     }
 
     UpdateOperatorSkillIds();
-
     _hasUnsavedChanges = false;
 }
 
